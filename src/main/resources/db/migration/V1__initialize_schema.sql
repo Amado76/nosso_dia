@@ -1,0 +1,1 @@
+CREATE SCHEMA IF NOT EXISTS nosso_dia;

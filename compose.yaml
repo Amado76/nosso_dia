@@ -1,0 +1,37 @@
+name: nosso-dia
+
+services:
+  postgres:
+    image: postgres:18.3
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nosso_dia}
+      POSTGRES_USER: ${POSTGRES_USER:-nosso_dia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  app:
+    profiles: ["app"]
+    build: .
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-nosso_dia}
+      DB_USERNAME: ${POSTGRES_USER:-nosso_dia}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env}
+      APP_SECURITY_USERNAME: ${APP_SECURITY_USERNAME:-dev}
+      APP_SECURITY_PASSWORD: ${APP_SECURITY_PASSWORD:?Set APP_SECURITY_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
