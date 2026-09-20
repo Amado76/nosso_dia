@@ -57,28 +57,72 @@ Spring's `ProblemDetail` for new error contracts, with a stable application `cod
 extension and safe field errors where useful. Reuse an established consistent
 contract if one already exists; do not introduce competing envelopes.
 
-The following is an illustrative shape, not an existing endpoint response:
+Expected application errors extend `shared.exception.ApiException` and carry an
+HTTP status, stable machine-readable code, message key, and optional arguments.
+Keep concrete exceptions in the owning feature. A single handler translates all
+subclasses to RFC 9457 `ProblemDetail` with `application/problem+json`:
 
 ```json
 {
   "type": "about:blank",
   "title": "Not Found",
   "status": 404,
-  "detail": "Child was not found",
-  "code": "CHILD_NOT_FOUND"
+  "detail": "Localized description",
+  "instance": "/api/example",
+  "code": "EXAMPLE_NOT_FOUND"
 }
 ```
 
-Use meaningful application exceptions and translate them at the boundary. Typical
-statuses are `400` for malformed or invalid input, `401` for missing/invalid
-authentication, `403` for forbidden access, `404` for missing resources, and `409`
-for a state conflict. An intentional `404` policy may conceal private resource
-existence; apply it consistently. Unexpected failures return a generic `500`.
+This example illustrates the contract; it does not define a product endpoint.
+Clients MUST branch on `code`, never on translated text. Controllers let exceptions
+propagate; they do not repeat exception mapping or resolve messages themselves.
+Business logic remains independent of the current language.
 
-Security filter failures may occur before MVC advice; configure the security entry
-point and access-denied handler when establishing a shared API error contract.
-Do not leak stack traces, SQL, exception class names, credentials, or rejected
-sensitive values. Clients should use stable codes, not parse human-readable messages.
+Request DTO and MVC method parameter validation return HTTP 400 with
+`code=VALIDATION_ERROR`, a localized title/detail, and an `errors` array of
+`{ "field": "...", "message": "..." }`. Error order is not contractual. Object-level
+constraints use the object name as the field. Never include rejected values.
+Use bundle keys in Jakarta annotations, for example
+`@NotBlank(message = "{validation.required}")`. Avoid interpolating sensitive
+input into constraint messages.
+
+Unexpected errors return HTTP 500 with `code=INTERNAL_SERVER_ERROR` and a safe,
+localized detail. Server logs retain the exception class and original stack frames;
+exception messages and causes are omitted because they may contain secrets or
+personal data. Expected errors do not produce error-level stack traces.
+
+The advice extends Spring's `ResponseEntityExceptionHandler` to preserve framework
+status handling (including 404, 405, 415, and malformed JSON). These framework
+responses do not promise application codes or localized messages. Authentication
+and authorization failures retain Spring Security handling; this PRD does not
+standardize security filter responses or change HTTP Basic/CSRF rules.
+
+### Localization
+
+Use `shared.localization.LocalizationService.get(key, arguments...)` at the
+presentation boundary for backend-owned text. It delegates to Spring
+`MessageSource` and the request locale. Application code must not select languages
+or access resource bundles directly. The same boundary can serve future success
+messages, labels, or content without introducing a CMS or Server-Driven UI now.
+
+Clients use the standard `Accept-Language` header. Supported languages are English
+(`en`), Portuguese (`pt`), and Spanish (`es`). Regional preferences such as
+`pt-BR`, `pt-PT`, and `es-PY` resolve to the base language. Spring negotiates
+weighted preferences. Missing or unsupported preferences default to English,
+independently of the server locale. No custom language headers are used.
+
+Translations live in `messages.properties` (English fallback) and
+`messages_en.properties`, `messages_pt.properties`, `messages_es.properties`.
+Keep default and English entries aligned. Portuguese and Spanish user-facing
+resources are the explicit localization exception to the repository's English-only
+text convention. Keep code, keys, comments, and documentation in English.
+
+Add only keys required by implemented behavior, with stable names such as
+`error.<feature>.<reason>` or `validation.<feature>.<field>.<constraint>`.
+Supply all three translations. Parameterized messages use Spring's
+`MessageFormat` syntax (`{0}`, `{1}`); escape literal apostrophes as `''` in
+parameterized patterns. Missing translations fall back to the English bundle;
+an unknown key is a programming/configuration error, not text to expose to users.
 
 ## Collections and documentation
 

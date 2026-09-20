@@ -29,6 +29,18 @@ class NossoDiaApplicationTests {
     private MockMvc mvc;
 
     @Test
+    void servesHealthWithValidCredentials() throws Exception {
+        mvc.perform(get("/api/health").with(httpBasic("test", "test-password")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"));
+    }
+
+    @Test
+    void requiresAuthenticationForHealth() throws Exception {
+        mvc.perform(get("/api/health")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void appliesInitialMigrationToPostgres() {
         assertEquals(1, jdbc.queryForObject(
                 "SELECT count(*) FROM public.flyway_schema_history WHERE version = '1' AND success",
@@ -41,6 +53,11 @@ class NossoDiaApplicationTests {
     @Test
     void requiresAuthenticationForApiDocumentation() throws Exception {
         mvc.perform(get("/v3/api-docs")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/v3/api-docs/swagger-config")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/swagger-ui/index.html")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/swagger-ui/swagger-ui.css")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/swagger-ui/swagger-ui-bundle.js")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/swagger-ui.html")).andExpect(status().isUnauthorized());
     }
 
     @Test

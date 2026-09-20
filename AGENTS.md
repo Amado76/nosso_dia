@@ -66,6 +66,12 @@ provides the architecture overview and local execution instructions.
 - Run `./mvnw verify` for changes affecting application behavior; Docker must be available. Report any check that could not run.
 - Documentation-only changes require link, consistency, and diff checks; they do not require starting Docker or running the application suite.
 
+## Command output hygiene
+
+- For verbose commands such as Maven, Docker, test suites, and application runs, redirect full output to a log file under `/private/tmp` by default and inspect only the relevant summary or failure excerpts.
+- Prefer focused test commands during TDD and run the full verification only when the change is ready.
+- Keep user-facing reports concise: include the command, the log path when useful, the result, and the meaningful error lines instead of pasting long logs.
+
 ## Before changing code
 
 1. Identify the business feature and layer that own the behavior.

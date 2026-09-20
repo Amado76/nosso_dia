@@ -25,7 +25,9 @@ Keep the constitution and relevant guides aligned when changing a convention.
 ## Current scope
 
 The repository currently provides application startup, database migration,
-OpenAPI documentation, temporary HTTP Basic authentication, and integration tests.
+OpenAPI documentation, temporary HTTP Basic authentication, centralized API errors,
+English/Portuguese/Spanish localization, and automated tests. See the
+[API error and localization contract](docs/api.md#errors).
 The product domain and final authentication flow are not defined yet.
 Feature names and API examples below illustrate organization; they are not approved
 requirements and do not authorize implementing business features.
@@ -200,17 +202,34 @@ variables above. The example passwords are for local development only.
 
 Swagger UI: http://localhost:8080/swagger-ui/index.html
 
+Swagger UI shortcut: http://localhost:8080/swagger
+
 OpenAPI JSON: http://localhost:8080/v3/api-docs
 
 These URLs use the default port from `.env.example`. Always use the port configured
 in `.env`; for example, `APP_PORT=8081` changes the application URL to
 http://localhost:8081.
 
-All routes require HTTP Basic authentication. Use `APP_SECURITY_USERNAME` and
+Swagger UI, OpenAPI JSON, and application routes require HTTP Basic
+authentication. Use `APP_SECURITY_USERNAME` and
 `APP_SECURITY_PASSWORD` from `.env`. Without a configured password, Spring generates
 a temporary password and prints it in the application log. CSRF protection remains
 enabled. This is a temporary development setup; the product authentication flow
 has yet to be defined. This foundation does not include business endpoints.
+
+### Application health check
+
+`GET /api/health` returns HTTP `200` with `{"status":"UP"}` when the application
+can respond. It requires the same HTTP Basic credentials as other routes;
+unauthenticated requests return `401`. This checks application responsiveness,
+not database or external dependency readiness.
+
+After exporting the local variables above:
+
+```sh
+curl --fail --user "$APP_SECURITY_USERNAME:$APP_SECURITY_PASSWORD" \
+  "http://localhost:${SERVER_PORT:-8080}/api/health"
+```
 
 ## Run everything in Docker
 
@@ -234,7 +253,7 @@ in `.env` if the default ports are occupied.
 ```
 
 Tests start a disposable PostgreSQL 18.3 instance with Testcontainers, independently
-of the Compose database. They verify the migration, API documentation and HTTP Basic
+of the Compose database. They verify the migration, health check, API documentation and HTTP Basic
 authentication. Docker and network access are required on first use to download
 dependencies and images. The JAR is generated at
 `target/nosso-dia-0.0.1-SNAPSHOT.jar`.

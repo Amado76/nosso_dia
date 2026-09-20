@@ -5,8 +5,9 @@ uploads, and downloads. Follow [AGENTS.md](../AGENTS.md).
 
 ## Current authentication boundary
 
-The foundation requires HTTP Basic authentication for every route, including API
-documentation, and retains CSRF protection. Credentials come from configuration.
+The foundation requires HTTP Basic authentication for all routes, including
+Swagger UI and OpenAPI documentation, and CSRF protection remains enabled.
+Credentials come from configuration.
 This is a temporary development setup, not the final product authentication flow.
 Do not assume JWT, OAuth, sessions, registration, or a membership model before
 requirements define them. Production authentication remains an open decision.
