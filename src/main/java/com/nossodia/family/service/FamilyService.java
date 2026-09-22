@@ -22,13 +22,15 @@ public class FamilyService {
     private final FamilyMembershipRepository memberships;
     private final UserService users;
     private final Clock clock;
+    private final FamilyAuthorizationService authorization;
 
     public FamilyService(FamilyRepository families, FamilyMembershipRepository memberships,
-            UserService users, Clock clock) {
+            UserService users, Clock clock, FamilyAuthorizationService authorization) {
         this.families = families;
         this.memberships = memberships;
         this.users = users;
         this.clock = clock;
+        this.authorization = authorization;
     }
 
     @Transactional
@@ -58,13 +60,11 @@ public class FamilyService {
 
     @Transactional
     public FamilyResponse rename(UUID userId, UUID familyId, String name) {
-        users.current(userId);
-        var membership = memberships.findByFamilyIdAndUserId(familyId, userId)
-                .orElseThrow(FamilyException::notFound);
-        if (membership.getRole() == FamilyRole.MEMBER) throw FamilyException.forbidden();
+        var role = authorization.requireMembership(userId, familyId);
+        authorization.requireEditor(role);
         var family = families.findById(familyId).orElseThrow(FamilyException::notFound);
         family.rename(name, clock.instant());
-        return response(family, membership.getRole());
+        return response(family, role);
     }
 
     private static FamilyResponse response(Family family, FamilyRole role) {

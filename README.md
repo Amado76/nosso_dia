@@ -35,6 +35,9 @@ BE-02 provides family creation, membership-scoped listing and details, and
 OWNER/ADMIN renaming. See the [family integration guide](docs/families.md) and
 [BE-02 PRD](docs/be-02-family-authorization-prd.md). Family deletion, invitations,
 membership administration, and the remaining product domain are not implemented.
+BE-03 provides family people profiles, active-state management, and self-account
+links. See the [family members integration guide](docs/family-members.md) and
+[BE-03 PRD](docs/be-03-family-members-prd.md). Avatar writes await the media feature.
 Feature names and API examples below illustrate organization; they are not approved
 requirements and do not authorize implementing business features.
 
@@ -102,7 +105,8 @@ family/
 ├── controller/
 │   └── FamilyController.java
 ├── service/
-│   └── FamilyService.java
+│   ├── FamilyService.java
+│   └── FamilyAuthorizationService.java
 ├── repository/
 │   ├── FamilyRepository.java
 │   └── FamilyMembershipRepository.java
@@ -315,4 +319,5 @@ dependencies and images. The JAR is generated at
 
 The initial migration creates the `nosso_dia` schema; Flyway history is stored in
 `public`. Hibernate validates mappings without creating or changing tables.
-Subsequent migrations create users, refresh/reset tokens, and external identities.
+Subsequent migrations create users, refresh/reset tokens, external identities,
+families, memberships, and family members.
