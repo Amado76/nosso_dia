@@ -1,7 +1,9 @@
 # BE-02 — Family & Authorization
 
-Status: draft for product review. This document proposes future behavior; it does
-not describe available endpoints or authorize implementation of unresolved rules.
+Status: implemented baseline following the request to implement BE-02.
+The policies below were adopted for this increment, with DELETE deferred.
+See [Family integration](families.md) for the implemented HTTP contract.
+Creation quotas remain a rollout decision; no quota is enforced in this increment.
 
 ## Problem and outcome
 
@@ -21,9 +23,9 @@ routine, and task completion without implementing those features here.
 
 The supplied product direction establishes `Family`, `FamilyMembership`, the roles
 `OWNER`, `ADMIN`, and `MEMBER`, automatic ownership on creation, and protected family
-operations. The specific policies below are proposals until reviewed.
+operations. The specific policies below define the implemented baseline.
 
-| Decision | Proposed baseline | Why / consequence |
+| Decision | Selected baseline | Why / consequence |
 | --- | --- | --- |
 | Families per user | Allow membership in multiple families; no one-family uniqueness rule | Fits the membership model and family list; any creation quota must be decided separately |
 | Ownership | Exactly one OWNER per family | Makes authority clear; transfers and co-ownership require a later explicit flow |
@@ -33,11 +35,10 @@ operations. The specific policies below are proposals until reviewed.
 | Concurrent renames | Last committed write wins | Small initial scope; clients must not assume conflict detection |
 | Joining and role management | Separate follow-up scope | BE-02 creates only the creator's OWNER membership through public APIs |
 
-Decisions in this table must be settled before implementing the affected behavior.
-Creation quotas and abuse controls also need a decision before public rollout;
+Creation quotas and abuse controls still need a decision before public rollout;
 the existing authentication POST limiter does not establish a family API limit.
 
-Included in the proposed baseline:
+Included in the selected baseline:
 
 - Create a family and its initial OWNER membership atomically.
 - List only families accessible to the authenticated user, with bounded pagination.
@@ -67,14 +68,14 @@ family. `FamilyMember` will represent a person in that family, including a child
 without a login. A future `linkedUserId` is a profile association and must not,
 by itself, grant permissions. BE-02 does not create a person profile implicitly.
 
-| Entity | Minimum proposed fields |
+| Entity | Minimum selected fields |
 | --- | --- |
 | Family | `id: UUID`, `name: String`, `createdAt: Instant`, `updatedAt: Instant` |
 | FamilyMembership | `id: UUID`, `familyId: UUID`, `userId: UUID`, `role: enum`, `createdAt: Instant` |
 
 All fields above are non-null and identifiers/timestamps are server-generated.
 Roles belong to a family membership, never to a global user role. A user may be
-OWNER in one family and MEMBER in another under the proposed multi-family policy.
+OWNER in one family and MEMBER in another under the selected multi-family policy.
 The membership is the authority; do not add a second independently mutable
 `ownerId` as a competing source of truth.
 
@@ -86,7 +87,7 @@ transfer/removal flow must explicitly preserve that invariant under concurrency.
 
 ## Authorization contract
 
-Proposed permissions:
+Selected permissions:
 
 | Operation | Authenticated, no membership | MEMBER | ADMIN | OWNER |
 | --- | --- | --- | --- | --- |
@@ -104,7 +105,7 @@ roles in access JWTs. A role in family A never grants authority in family B.
 Keep the rules in the family service boundary so non-controller callers cannot
 bypass them. Filter lists before pagination and before any aggregate calculation.
 
-Proposed disclosure policy: unauthenticated requests return `401 UNAUTHENTICATED`;
+Selected disclosure policy: unauthenticated requests return `401 UNAUTHENTICATED`;
 an unknown family and a family inaccessible to the caller both return
 `404 FAMILY_NOT_FOUND` with the same safe response. A known member with insufficient
 permissions receives `403 FORBIDDEN`. Never disclose family names or membership
@@ -114,7 +115,7 @@ Future nested resources must match both the authorized family and the requested
 resource ID. Linking a child from another family must never bypass this boundary.
 That is a design requirement for later features, not a request to scaffold them now.
 
-## Proposed HTTP contract
+## Selected HTTP contract
 
 Paths are relative to the configured backend origin. All requests use
 `Authorization: Bearer <accessToken>`. Bodies use `Content-Type: application/json`;
@@ -129,7 +130,7 @@ Optional `Accept-Language` follows the existing English/Portuguese/Spanish behav
 | `PATCH /api/families/{familyId}` | Required UUID and body with `name` | `200 OK`, updated family response |
 
 `DELETE /api/families/{familyId}` was suggested in the original outline. It is
-pending the deletion decision and has no committed contract in this draft.
+pending the deletion decision and has no committed contract in this increment.
 If included, define retention, restoration, dependent records, concurrent writes,
 retry behavior, and ownership permissions before implementing it.
 
@@ -163,7 +164,7 @@ caller's role in this family, and timestamps are ISO-8601 UTC instants. Response
 do not include other users, emails, or membership collections. `myRole` supports
 UI controls; the backend remains authoritative on every request.
 
-Proposed pagination: zero-based `page` (default 0), `size` (default 20, range 1–100),
+Selected pagination: zero-based `page` (default 0), `size` (default 20, range 1–100),
 ordered by `createdAt ASC, id ASC`. No filters or client-selectable sort initially.
 Negative, malformed, or unsupported pagination values return 400. Return an
 explicit slice DTO without total counts:
@@ -190,8 +191,8 @@ code needed for inaccessible/missing families:
 | 415 | Unsupported content type | Send JSON |
 | 500 | `INTERNAL_SERVER_ERROR` | Show a generic failure; mutation outcome may be uncertain |
 
-Error examples, field-level details, and any additional implemented statuses must
-appear in the final integration guide, consistent with [API errors](api.md#errors).
+Error examples, field-level details, and implemented statuses appear in the
+[integration guide](families.md), consistent with [API errors](api.md#errors).
 
 ## Transactions, retries, and client behavior
 
@@ -199,11 +200,11 @@ Creating the family and OWNER membership is one transaction: both persist or
 neither persists. A failure must never leave an ownerless family. Creation changes
 neither authentication tokens nor other memberships and sends no invitations.
 
-No idempotency-key support is proposed. Retrying a POST after an ambiguous timeout
+No idempotency keys are supported. Retrying a POST after an ambiguous timeout
 may create a second family, including one with the same name. The client should
 reload its families and let the user reconcile the outcome before creating again.
 GET can be retried. PATCH assigns an absolute name, but an automatic retry may
-overwrite another rename under the proposed last-write policy; reload before retry.
+overwrite another rename under the selected last-write policy; reload before retry.
 Concurrent membership changes in a later feature must coordinate authorization
 checks and writes so revoked privileges cannot be reused for a new operation.
 
@@ -221,7 +222,7 @@ or logging out. BE-02 does not add an active-family field to the user or JWT.
 4. Users A and B can create separate families; neither can read or rename the
    other's family by supplying its UUID, and neither sees it in any list page.
 5. A missing UUID and another user's family produce the same 404 contract.
-6. MEMBER can read but cannot rename; ADMIN and OWNER can rename under the proposed
+6. MEMBER can read but cannot rename; ADMIN and OWNER can rename under the selected
    matrix. Roles in another family cannot satisfy the permission check.
 7. Invalid names and client-supplied identity/role fields are rejected without
    creating or changing a family or membership.

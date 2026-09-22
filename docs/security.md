@@ -12,7 +12,8 @@ HTTP Basic and generated development users are disabled. Swagger is public only
 when explicitly enabled for development. See [Authentication](authentication.md)
 for configuration, token lifecycle, notification boundaries, and deployment limits.
 Google/Apple identity mapping is prepared, but OAuth login/linking routes are not
-enabled. Family authorization belongs to BE-02.
+enabled. BE-02 enforces persisted family memberships for family reads and renames;
+see [Family authorization](families.md).
 
 Do not disable CSRF or broadly allow CORS simply to make a client call pass.
 Choose CSRF behavior from the actual credential transport and browser threat model;

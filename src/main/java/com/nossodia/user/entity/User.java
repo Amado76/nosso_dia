@@ -1,4 +1,4 @@
-package com.nossodia.user;
+package com.nossodia.user.entity;
 
 import jakarta.persistence.*;
 import java.time.Instant;
@@ -15,7 +15,7 @@ public class User {
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
 
     protected User() {}
-    User(String name, String email, String passwordHash, Instant now) {
+    public User(String name, String email, String passwordHash, Instant now) {
         this.id = UUID.randomUUID();
         this.name = name;
         this.email = email;
@@ -27,7 +27,7 @@ public class User {
     public String getName() { return name; }
     public String getEmail() { return email; }
     public String getPasswordHash() { return passwordHash; }
-    void changePassword(String hash, Instant now) {
+    public void changePassword(String hash, Instant now) {
         passwordHash = hash;
         updatedAt = now;
     }

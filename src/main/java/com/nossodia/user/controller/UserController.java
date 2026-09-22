@@ -1,4 +1,6 @@
-package com.nossodia.user;
+package com.nossodia.user.controller;
+
+import com.nossodia.user.service.UserService;
 
 import com.nossodia.user.dto.UserResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;

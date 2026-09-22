@@ -4,7 +4,7 @@ import com.nossodia.auth.entity.ExternalProvider;
 import com.nossodia.auth.exception.AuthException;
 import com.nossodia.auth.repository.ExternalIdentityRepository;
 
-import com.nossodia.user.UserService;
+import com.nossodia.user.service.UserService;
 import com.nossodia.user.dto.UserResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;

@@ -1,4 +1,6 @@
-package com.nossodia.user;
+package com.nossodia.user.repository;
+
+import com.nossodia.user.entity.User;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -7,7 +9,7 @@ import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
-interface UserRepository extends JpaRepository<User, UUID> {
+public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByEmail(String email);
     @Modifying
     @Query(value = """

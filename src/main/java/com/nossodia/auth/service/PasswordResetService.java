@@ -8,7 +8,7 @@ import com.nossodia.auth.repository.RefreshTokenRepository;
 import com.nossodia.auth.security.AuthProperties;
 import com.nossodia.auth.security.TokenSecrets;
 
-import com.nossodia.user.UserService;
+import com.nossodia.user.service.UserService;
 import java.time.Clock;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;

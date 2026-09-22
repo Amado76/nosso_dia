@@ -22,7 +22,7 @@ class NossoDiaApplicationTests {
         mvc.perform(get("/api/health")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("UP"));
     }
     @Test void appliesMigrationsToPostgres() {
-        assertEquals(4, jdbc.queryForObject("SELECT count(*) FROM public.flyway_schema_history WHERE success", Integer.class));
+        assertEquals(5, jdbc.queryForObject("SELECT count(*) FROM public.flyway_schema_history WHERE success", Integer.class));
         assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM information_schema.schemata WHERE schema_name = 'nosso_dia'", Integer.class));
     }
     @Test void protectsDocumentationByDefault() throws Exception {

@@ -25,7 +25,8 @@ provides the architecture overview and local execution instructions.
 - Use Java 25, Spring Boot, and the committed Maven Wrapper.
 - Build a modular monolith organized by feature; do not introduce microservices.
 - Default flow: Controller → Service → Repository. Keep business logic out of controllers.
-- Begin with flat feature packages and a `dto` subpackage. Add internal layers only for demonstrated complexity.
+- Feature packages MUST use responsibility-based subpackages, following `auth`: `controller`, `service`, `repository`, `entity`, `dto`, and `exception`, plus feature-specific infrastructure packages such as `security` and `mail` when needed.
+- Keep top-level feature classes in their responsibility subpackages, not directly in the feature root. Create only packages and layers that have actual responsibilities; do not add empty packages or artificial services. Keep technical layers inside their owning feature, never in global application-wide layer packages.
 - Keep modules loosely coupled. Prefer IDs for cross-module references when practical; avoid large bidirectional JPA graphs.
 - Avoid dependency cycles and unnecessary service chains. Do not bypass another feature's business rules through direct repository access.
 - Keep `shared` small. Prefer existing structures over parallel implementations.

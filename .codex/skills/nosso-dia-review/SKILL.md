@@ -37,7 +37,7 @@ Inspect the full changed files and nearby implementation before judging. Use the
 
 Check the change against these expectations:
 
-- Architecture: Controller -> Service -> Repository flow, business logic outside controllers, flat feature packages with `dto` subpackages, loose module coupling, no unnecessary service chains or dependency cycles, and a small `shared` package.
+- Architecture: Controller -> Service -> Repository flow, business logic outside controllers, responsibility-based subpackages within each feature following `auth` and the current architecture guide, no empty packages or artificial layers, loose module coupling, no unnecessary service chains or dependency cycles, and a small `shared` package.
 - API: REST/JSON resource URLs, explicit request and response DTOs, proper HTTP methods, external input validation, centralized API errors, bounded collections, and no direct exposure of JPA entities.
 - Java style: constructor injection, explicit mapping, suitable records, Java Time, clear business names, and no Lombok, mapping framework, automatic service interface, or generic CRUD base class without a clear demonstrated need.
 - Persistence: PostgreSQL, UUID domain identifiers by default, versioned Flyway migrations for schema changes, no edits to migrations already applied to shared environments, `ddl-auto=validate`, `open-in-view=false`, short service transactions, database constraints for persisted invariants, and concurrency handling where relevant.

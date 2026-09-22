@@ -31,9 +31,10 @@ Google/Apple external identity mapping foundation. It also includes database
 migrations, OpenAPI, centralized API errors, English/Portuguese/Spanish localization,
 and automated tests. See [authentication](docs/authentication.md) and the
 [API error and localization contract](docs/api.md#errors).
-Family authorization and the remaining product domain are not implemented.
-The [BE-02 Family & Authorization PRD](docs/be-02-family-authorization-prd.md)
-proposes the next increment and identifies product decisions pending review.
+BE-02 provides family creation, membership-scoped listing and details, and
+OWNER/ADMIN renaming. See the [family integration guide](docs/families.md) and
+[BE-02 PRD](docs/be-02-family-authorization-prd.md). Family deletion, invitations,
+membership administration, and the remaining product domain are not implemented.
 Feature names and API examples below illustrate organization; they are not approved
 requirements and do not authorize implementing business features.
 
@@ -93,25 +94,39 @@ com.nossodia
 └── shared
 ```
 
-Start a feature with a small, readable structure:
+Feature packages MUST use responsibility-based subpackages, following `auth`.
+For example, the implemented family feature is organized as:
 
 ```text
-children/
-├── ChildController.java
-├── ChildService.java
-├── ChildRepository.java
-├── Child.java
+family/
+├── controller/
+│   └── FamilyController.java
+├── service/
+│   └── FamilyService.java
+├── repository/
+│   ├── FamilyRepository.java
+│   └── FamilyMembershipRepository.java
+├── entity/
+│   ├── Family.java
+│   ├── FamilyMembership.java
+│   └── FamilyRole.java
+├── exception/
+│   └── FamilyException.java
 └── dto/
-    ├── CreateChildRequest.java
-    └── ChildResponse.java
+    ├── FamilyNameRequest.java
+    ├── FamilyPage.java
+    └── FamilyResponse.java
 ```
 
-Do not organize the whole application into global `controller`, `service`,
-`repository`, `entity`, or `dto` packages. Introduce subpackages inside a feature
-only when its complexity justifies them. Existing bootstrap configuration does
-not need an unrelated move.
+Keep top-level feature classes in their responsibility subpackages, not directly
+in the feature root. Create only packages required by existing responsibilities;
+`health`, for example, needs only `controller` and `dto`. Do not introduce empty
+packages or artificial layers to match the example. Do not organize the whole
+application into global `controller`, `service`, `repository`, `entity`, or `dto`
+packages. Existing bootstrap configuration and shared cross-feature infrastructure
+retain their separate packages.
 
-Authentication has enough responsibilities to use explicit internal packages:
+Authentication is the reference for this organization:
 
 ```text
 auth/
@@ -126,8 +141,9 @@ auth/
 ```
 
 These packages remain part of one authentication feature. Cross-package access
-uses public types and focused entity methods; persisted fields remain private.
-Smaller features can retain the flat structure above.
+uses public collaborator types and focused entity methods; persisted fields remain
+private. Apply the same convention to every feature, adding infrastructure
+packages such as `security` and `mail` only where those responsibilities exist.
 
 ### Boundaries and simplicity
 

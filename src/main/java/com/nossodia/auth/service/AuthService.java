@@ -4,7 +4,7 @@ import com.nossodia.auth.exception.AuthException;
 import com.nossodia.auth.security.TokenSecrets;
 
 import com.nossodia.auth.dto.RegisterRequest;
-import com.nossodia.user.UserService;
+import com.nossodia.user.service.UserService;
 import com.nossodia.user.dto.UserResponse;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -30,7 +30,7 @@ public class AuthService {
 
     public com.nossodia.auth.dto.AuthResponse login(com.nossodia.auth.dto.LoginRequest request) {
         var found = users.findForAuthentication(request.email());
-        String hash = found.map(com.nossodia.user.User::getPasswordHash).orElse(dummyHash);
+        String hash = found.map(com.nossodia.user.entity.User::getPasswordHash).orElse(dummyHash);
         boolean matches = passwords.matches(request.password(), hash);
         if (!matches || found.isEmpty() || found.get().getPasswordHash() == null) throw invalidCredentials();
         return transactions.execute(status -> {

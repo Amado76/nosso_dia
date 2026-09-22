@@ -7,7 +7,7 @@ import com.nossodia.auth.security.AuthProperties;
 import com.nossodia.auth.security.TokenSecrets;
 
 import com.nossodia.auth.dto.AuthResponse;
-import com.nossodia.user.UserService;
+import com.nossodia.user.service.UserService;
 import java.time.Clock;
 import java.util.UUID;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;

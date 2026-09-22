@@ -10,16 +10,27 @@ Organize code under `com.nossodia` by business capability. Names such as `childr
 `family`, and `routine` are examples until product requirements establish them.
 Do not generate empty modules in anticipation of future work.
 
-Start with a controller, service, repository, entity, and `dto` package only as
-needed. A simple read need not gain artificial layers merely to match a template.
-Controllers still delegate business decisions and persistence access to services.
-As complexity grows, a feature may introduce responsibility-based subpackages
-independently of other features. Authentication uses `controller`, `dto`, `entity`,
-`repository`, `service`, `security`, `mail`, and `exception` to separate its HTTP,
-persistence, use-case, security, and delivery responsibilities. See the
-[package structure](../README.md#package-by-feature). This requires public types
-at internal package boundaries; keep entity fields private and expose focused
-methods rather than mutable public state.
+Feature packages MUST follow the responsibility-based layout of `auth`. Place
+HTTP controllers in `controller`, use-case services in `service`, persistence
+interfaces in `repository`, entities and domain enums in `entity`, request/response
+contracts and their validation in `dto`, and top-level application exceptions in
+`exception`. Feature-specific infrastructure belongs in focused packages such as
+`auth.security` and `auth.mail`.
+
+Apply this layout consistently to every feature, including `family`, `user`, and
+`health`. Create only the packages needed by existing classes: a health endpoint
+may have just `controller` and `dto`. Do not create artificial services or
+repositories merely to match a template. Controllers still delegate business
+decisions and persistence access to services. Do not introduce application-wide
+technical layer packages or place top-level feature classes in the feature root.
+See the [package structure](../README.md#package-by-feature).
+
+Cross-package access requires public collaborator types and the constructors or
+methods called by another responsibility package. Keep entity fields private,
+retain protected JPA no-argument constructors, and expose focused domain operations
+rather than mutable public state. Tests local to a responsibility package mirror
+its production package when they need package-private access; application-wide
+integration tests may remain in the application test package.
 
 ## Dependencies between features
 

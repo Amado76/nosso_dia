@@ -1,4 +1,4 @@
-package com.nossodia.health;
+package com.nossodia.health.controller;
 
 import com.nossodia.health.dto.HealthResponse;
 import io.swagger.v3.oas.annotations.Operation;

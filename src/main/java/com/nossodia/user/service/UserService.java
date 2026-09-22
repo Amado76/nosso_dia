@@ -1,4 +1,7 @@
-package com.nossodia.user;
+package com.nossodia.user.service;
+
+import com.nossodia.user.entity.User;
+import com.nossodia.user.repository.UserRepository;
 
 import com.nossodia.shared.exception.ApiException;
 import com.nossodia.user.dto.UserResponse;
