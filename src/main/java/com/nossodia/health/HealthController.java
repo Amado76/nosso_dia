@@ -10,7 +10,7 @@ class HealthController {
 
     @GetMapping("/api/health")
     @Operation(summary = "Check application responsiveness",
-            description = "Requires HTTP Basic authentication. Does not check database or external dependencies.")
+            description = "Public liveness check. Does not check database or external dependencies.")
     HealthResponse health() {
         return new HealthResponse("UP");
     }

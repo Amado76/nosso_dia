@@ -7,70 +7,33 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @Import(TestcontainersConfiguration.class)
-@SpringBootTest(properties = {
-        "spring.security.user.name=test",
-        "spring.security.user.password=test-password"
-})
+@SpringBootTest(properties = "auth.allow-ephemeral-key=true")
 @AutoConfigureMockMvc
 class NossoDiaApplicationTests {
+    @Autowired JdbcTemplate jdbc;
+    @Autowired MockMvc mvc;
 
-    @Autowired
-    private JdbcTemplate jdbc;
-
-    @Autowired
-    private MockMvc mvc;
-
-    @Test
-    void servesHealthWithValidCredentials() throws Exception {
-        mvc.perform(get("/api/health").with(httpBasic("test", "test-password")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("UP"));
+    @Test void servesPublicHealth() throws Exception {
+        mvc.perform(get("/api/health")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("UP"));
     }
-
-    @Test
-    void requiresAuthenticationForHealth() throws Exception {
-        mvc.perform(get("/api/health")).andExpect(status().isUnauthorized());
+    @Test void appliesMigrationsToPostgres() {
+        assertEquals(4, jdbc.queryForObject("SELECT count(*) FROM public.flyway_schema_history WHERE success", Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM information_schema.schemata WHERE schema_name = 'nosso_dia'", Integer.class));
     }
-
-    @Test
-    void appliesInitialMigrationToPostgres() {
-        assertEquals(1, jdbc.queryForObject(
-                "SELECT count(*) FROM public.flyway_schema_history WHERE version = '1' AND success",
-                Integer.class));
-        assertEquals(1, jdbc.queryForObject(
-                "SELECT count(*) FROM information_schema.schemata WHERE schema_name = 'nosso_dia'",
-                Integer.class));
+    @Test void protectsDocumentationByDefault() throws Exception {
+        for (String path : new String[]{"/v3/api-docs", "/v3/api-docs/swagger-config", "/swagger-ui/index.html",
+                "/swagger-ui/swagger-ui.css", "/swagger-ui/swagger-ui-bundle.js", "/swagger-ui.html", "/swagger"}) {
+            mvc.perform(get(path)).andExpect(status().isUnauthorized());
+        }
     }
-
-    @Test
-    void requiresAuthenticationForApiDocumentation() throws Exception {
-        mvc.perform(get("/v3/api-docs")).andExpect(status().isUnauthorized());
-        mvc.perform(get("/v3/api-docs/swagger-config")).andExpect(status().isUnauthorized());
-        mvc.perform(get("/swagger-ui/index.html")).andExpect(status().isUnauthorized());
-        mvc.perform(get("/swagger-ui/swagger-ui.css")).andExpect(status().isUnauthorized());
-        mvc.perform(get("/swagger-ui/swagger-ui-bundle.js")).andExpect(status().isUnauthorized());
-        mvc.perform(get("/swagger-ui.html")).andExpect(status().isUnauthorized());
-    }
-
-    @Test
-    void servesApiDocumentationWithValidCredentials() throws Exception {
-        mvc.perform(get("/v3/api-docs").with(httpBasic("test", "test-password")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.info.title").value("Nosso Dia API"));
-    }
-
-    @Test
-    void rejectsInvalidCredentials() throws Exception {
-        mvc.perform(get("/v3/api-docs").with(httpBasic("test", "wrong-password")))
+    @Test void rejectsLegacyBasicAuthentication() throws Exception {
+        mvc.perform(get("/api/users/me").with(
+                org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic("dev", "test-password")))
                 .andExpect(status().isUnauthorized());
     }
-
 }

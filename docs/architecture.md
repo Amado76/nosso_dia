@@ -13,8 +13,13 @@ Do not generate empty modules in anticipation of future work.
 Start with a controller, service, repository, entity, and `dto` package only as
 needed. A simple read need not gain artificial layers merely to match a template.
 Controllers still delegate business decisions and persistence access to services.
-As complexity grows, a feature may introduce `api`, `application`, `domain`, and
-`infrastructure` subpackages independently of other features.
+As complexity grows, a feature may introduce responsibility-based subpackages
+independently of other features. Authentication uses `controller`, `dto`, `entity`,
+`repository`, `service`, `security`, `mail`, and `exception` to separate its HTTP,
+persistence, use-case, security, and delivery responsibilities. See the
+[package structure](../README.md#package-by-feature). This requires public types
+at internal package boundaries; keep entity fields private and expose focused
+methods rather than mutable public state.
 
 ## Dependencies between features
 

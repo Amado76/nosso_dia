@@ -94,8 +94,9 @@ personal data. Expected errors do not produce error-level stack traces.
 The advice extends Spring's `ResponseEntityExceptionHandler` to preserve framework
 status handling (including 404, 405, 415, and malformed JSON). These framework
 responses do not promise application codes or localized messages. Authentication
-and authorization failures retain Spring Security handling; this PRD does not
-standardize security filter responses or change HTTP Basic/CSRF rules.
+and authorization filter failures use the same ProblemDetail shape with localized
+details and stable `UNAUTHENTICATED` (401) or `FORBIDDEN` (403) codes. Authentication
+rate limits return `RATE_LIMITED` (429). See [Authentication](authentication.md).
 
 ### Localization
 
@@ -136,3 +137,30 @@ counts only when the contract needs them.
 Update OpenAPI with actual DTOs, validation, status codes, pagination, and security
 requirements. Do not advertise unimplemented authentication schemes. Test the
 contract and relevant negative cases using [Testing](testing.md).
+
+### Mandatory UI–API integration documentation
+
+Every new API MUST include a Markdown document under `docs/`, linked from the
+README, that humans and other agents can use to implement the UI integration.
+Group related endpoints in one feature document; extend an existing document
+when it already owns the contract. OpenAPI is complementary, not a substitute.
+Every API change MUST update the corresponding document in the same change,
+including changes to validation, security, errors, defaults, or side effects.
+
+The document MUST describe the implemented behavior and include:
+
+- Purpose, scope, base URL, configuration prerequisites, and known limitations.
+- Every method and route, path/query parameters, headers, content types,
+  authentication, and authorization/ownership requirements.
+- Request and response fields, types, requiredness, nullability, formats,
+  validation, normalization, defaults, and realistic JSON examples.
+- Success statuses, empty responses, error statuses and stable codes, field
+  validation errors, localization, and UI handling guidance.
+- Integration sequences, state changes, token/session handling where relevant,
+  concurrency, idempotency, safe retries, and rate limits.
+- Pagination, sorting, filtering, dates, or uploads when applicable; explicitly
+  identify relevant unsupported flows instead of inventing their contracts.
+
+Verify examples and claims against controllers, DTOs, services, security rules,
+and available tests. Check links and the diff before finishing. For the existing
+authentication API, use [Authentication](authentication.md).

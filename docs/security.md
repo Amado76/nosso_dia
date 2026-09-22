@@ -5,12 +5,14 @@ uploads, and downloads. Follow [AGENTS.md](../AGENTS.md).
 
 ## Current authentication boundary
 
-The foundation requires HTTP Basic authentication for all routes, including
-Swagger UI and OpenAPI documentation, and CSRF protection remains enabled.
-Credentials come from configuration.
-This is a temporary development setup, not the final product authentication flow.
-Do not assume JWT, OAuth, sessions, registration, or a membership model before
-requirements define them. Production authentication remains an open decision.
+BE-01 uses stateless Bearer JWT authentication with email/password registration,
+rotating refresh sessions, SMTP password recovery, and authenticated password changes. Public routes are explicitly
+listed in the security configuration; all others require authentication.
+HTTP Basic and generated development users are disabled. Swagger is public only
+when explicitly enabled for development. See [Authentication](authentication.md)
+for configuration, token lifecycle, notification boundaries, and deployment limits.
+Google/Apple identity mapping is prepared, but OAuth login/linking routes are not
+enabled. Family authorization belongs to BE-02.
 
 Do not disable CSRF or broadly allow CORS simply to make a client call pass.
 Choose CSRF behavior from the actual credential transport and browser threat model;
@@ -45,8 +47,8 @@ Never commit real credentials, tokens, API keys, or private files. Never log the
 or sensitive personal information. Avoid logging complete request bodies by default.
 Log meaningful events using safe resource identifiers and actionable failure context;
 avoid routine entering/leaving-method noise. Error responses must omit internal
-details. The generated Spring development password is a bootstrap mechanism,
-not a pattern to reproduce in application logging.
+details. Never reproduce the removed generated-password bootstrap behavior in
+application logging.
 
 ## Files and external integrations
 

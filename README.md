@@ -24,11 +24,16 @@ Keep the constitution and relevant guides aligned when changing a convention.
 
 ## Current scope
 
-The repository currently provides application startup, database migration,
-OpenAPI documentation, temporary HTTP Basic authentication, centralized API errors,
-English/Portuguese/Spanish localization, and automated tests. See the
+The repository provides email/password registration and login, JWT access tokens,
+rotating refresh sessions, SMTP password recovery, authenticated password changes,
+current-user retrieval, and a
+Google/Apple external identity mapping foundation. It also includes database
+migrations, OpenAPI, centralized API errors, English/Portuguese/Spanish localization,
+and automated tests. See [authentication](docs/authentication.md) and the
 [API error and localization contract](docs/api.md#errors).
-The product domain and final authentication flow are not defined yet.
+Family authorization and the remaining product domain are not implemented.
+The [BE-02 Family & Authorization PRD](docs/be-02-family-authorization-prd.md)
+proposes the next increment and identifies product decisions pending review.
 Feature names and API examples below illustrate organization; they are not approved
 requirements and do not authorize implementing business features.
 
@@ -102,9 +107,27 @@ children/
 ```
 
 Do not organize the whole application into global `controller`, `service`,
-`repository`, `entity`, or `dto` packages. Introduce `api`, `application`, `domain`,
-and `infrastructure` subpackages inside a feature only when its complexity
-justifies them. Existing bootstrap configuration does not need an unrelated move.
+`repository`, `entity`, or `dto` packages. Introduce subpackages inside a feature
+only when its complexity justifies them. Existing bootstrap configuration does
+not need an unrelated move.
+
+Authentication has enough responsibilities to use explicit internal packages:
+
+```text
+auth/
+├── controller/  # Authentication HTTP endpoints
+├── dto/         # Request/response contracts and input validation
+├── entity/      # Persisted tokens, external identities, and providers
+├── repository/  # Authentication persistence queries
+├── service/     # Authentication, session, and password use cases
+├── security/    # Token cryptography, configuration, rate limits, and security errors
+├── mail/        # Password-reset delivery and email configuration
+└── exception/   # Authentication application errors
+```
+
+These packages remain part of one authentication feature. Cross-package access
+uses public types and focused entity methods; persisted fields remain private.
+Smaller features can retain the flat structure above.
 
 ### Boundaries and simplicity
 
@@ -131,6 +154,10 @@ Jakarta Validation for input structure, and domain/application validation for
 business rules. Centralize exception handling and keep errors consistent without
 exposing implementation details. Document contracts through OpenAPI. Bound growing
 collections with pagination and define stable ordering.
+Every new API also requires a human- and agent-readable Markdown integration
+document under `docs/`, linked from this README. Every API change MUST update
+that document in the same change; follow the
+[UI–API documentation requirements](docs/api.md#mandatory-uiapi-integration-documentation).
 
 ### Persistence and transactions
 
@@ -153,7 +180,8 @@ resources until a later feature.
 Keep environment-specific configuration outside business code. Document variables
 in `.env.example`; never commit real secrets or log tokens, credentials, or sensitive
 personal data. Logs should explain meaningful events with safe identifiers and
-failure context. The current development authentication is not the product design.
+failure context. Authentication deployment limits are documented in
+[Authentication](docs/authentication.md).
 
 ### Testing and evolution
 
@@ -210,24 +238,28 @@ These URLs use the default port from `.env.example`. Always use the port configu
 in `.env`; for example, `APP_PORT=8081` changes the application URL to
 http://localhost:8081.
 
-Swagger UI, OpenAPI JSON, and application routes require HTTP Basic
-authentication. Use `APP_SECURITY_USERNAME` and
-`APP_SECURITY_PASSWORD` from `.env`. Without a configured password, Spring generates
-a temporary password and prints it in the application log. CSRF protection remains
-enabled. This is a temporary development setup; the product authentication flow
-has yet to be defined. This foundation does not include business endpoints.
+The example environment enables public Swagger for local development. Register
+with `POST /api/auth/register`, log in at `POST /api/auth/login`, and paste the
+returned access token into Swagger's **Authorize** dialog. Protected endpoints
+require `Authorization: Bearer <access-token>`. HTTP Basic is disabled.
+Swagger is protected unless `AUTH_PUBLIC_DOCS=true` is explicitly configured.
+The example environment uses ephemeral signing keys and discards password-reset
+delivery until SMTP is enabled. To send recovery emails, configure the provider,
+sender, and frontend reset URL using the variables in `.env.example`; see
+[email setup checklist](docs/email-setup.md),
+[password reset delivery](docs/authentication.md#password-reset-delivery), and
+[deployment requirements](docs/authentication.md#deployment).
 
 ### Application health check
 
 `GET /api/health` returns HTTP `200` with `{"status":"UP"}` when the application
-can respond. It requires the same HTTP Basic credentials as other routes;
-unauthenticated requests return `401`. This checks application responsiveness,
+can respond. It is public. This checks application responsiveness,
 not database or external dependency readiness.
 
 After exporting the local variables above:
 
 ```sh
-curl --fail --user "$APP_SECURITY_USERNAME:$APP_SECURITY_PASSWORD" \
+curl --fail \
   "http://localhost:${SERVER_PORT:-8080}/api/health"
 ```
 
@@ -253,8 +285,9 @@ in `.env` if the default ports are occupied.
 ```
 
 Tests start a disposable PostgreSQL 18.3 instance with Testcontainers, independently
-of the Compose database. They verify the migration, health check, API documentation and HTTP Basic
-authentication. Docker and network access are required on first use to download
+of the Compose database. They verify migrations, health, API documentation,
+authentication, recovery, session concurrency, and localization.
+Docker and network access are required on first use to download
 dependencies and images. The JAR is generated at
 `target/nosso-dia-0.0.1-SNAPSHOT.jar`.
 
@@ -266,4 +299,4 @@ dependencies and images. The JAR is generated at
 
 The initial migration creates the `nosso_dia` schema; Flyway history is stored in
 `public`. Hibernate validates mappings without creating or changing tables.
-Entities and subsequent migrations will follow the product requirements.
+Subsequent migrations create users, refresh/reset tokens, and external identities.

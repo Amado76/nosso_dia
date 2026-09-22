@@ -33,6 +33,7 @@ provides the architecture overview and local execution instructions.
 ## API and Java
 
 - Use REST/JSON, resource URLs, explicit request/response DTOs, and appropriate HTTP methods.
+- Every new API MUST have a Markdown integration document under `docs/`, readable by humans and other agents, and linked from the README. Every API change MUST update its document in the same change. Cover all details needed for UI–API integration: routes and methods, authentication/authorization, headers, request/response schemas and examples, required fields and nullability, validation, status/error codes, client flows, side effects, retries, pagination where applicable, and configuration or limitations. OpenAPI complements this document; it does not replace it. See [API documentation requirements](docs/api.md#mandatory-uiapi-integration-documentation).
 - Never expose JPA entities directly. Validate external input and centralize consistent API errors.
 - Bound growing collections and avoid N+1 queries.
 - Prefer constructor injection, explicit mapping, suitable Java records, and Java Time.
