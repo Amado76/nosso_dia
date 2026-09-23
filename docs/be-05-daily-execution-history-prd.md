@@ -1,8 +1,8 @@
 # BE-05 — Daily Execution and History
 
-Status: proposed implementation scope. This document defines the execution
-rules that BE-05 adds on top of BE-04; it is not the implemented API contract.
-Implementation must add a README-linked UI–API guide and matching OpenAPI.
+Status: implemented. This document records the BE-05 execution requirements.
+See the [daily execution integration guide](daily-execution.md) for the implemented
+API contract, limits, and concurrency decisions; OpenAPI complements that guide.
 
 ## Outcome and boundary
 

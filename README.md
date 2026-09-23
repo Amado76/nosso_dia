@@ -50,7 +50,8 @@ links. See the [family members integration guide](docs/family-members.md) and
 BE-04 provides recurring routines, date-specific notes/items, resolved daily plans,
 and family timezones. See the [planning integration guide](docs/planning.md) and
 [Routines and Daily Planning PRD](docs/be-04-routines-daily-planning-prd.md).
-BE-05 is the proposed daily execution and history scope. See the
+BE-05 provides daily execution snapshots, completion, finalization, corrections,
+and paginated history. See the [execution integration guide](docs/daily-execution.md) and
 [Daily Execution and History PRD](docs/be-05-daily-execution-history-prd.md).
 Feature names and API examples below illustrate organization; they are not approved
 requirements and do not authorize implementing business features.
