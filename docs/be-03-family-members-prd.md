@@ -41,12 +41,12 @@ claim of functionality here.
 
 ## Domain and persistence
 
-Create `com.nossodia.familymember` with responsibility subpackages for controller,
+Create `com.beehome.familymember` with responsibility subpackages for controller,
 dto, entity, repository, service, and exception only where classes are needed.
 Keep family and user persistence behind their owning feature boundaries. No JPA
 collection on `Family`; use UUID references and scoped repository queries.
 
-Add the next versioned Flyway migration after V5 in `nosso_dia`:
+Add the next versioned Flyway migration after V5 in `beehome`:
 
 | Column | Type | Rule |
 | --- | --- | --- |

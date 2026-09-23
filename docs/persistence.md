@@ -5,7 +5,7 @@ Follow [AGENTS.md](../AGENTS.md).
 
 ## Existing foundation
 
-PostgreSQL is the database. `V1__initialize_schema.sql` creates `nosso_dia`;
+PostgreSQL is the database. `V1__initialize_schema.sql` creates `nosso_dia`, and V8 renames it to `beehome`;
 Flyway history resides in `public`. Keep application objects in the intended schema,
 `spring.jpa.hibernate.ddl-auto=validate`, and `spring.jpa.open-in-view=false`.
 Use Spring Data JPA where sufficient, without generic repository wrappers.

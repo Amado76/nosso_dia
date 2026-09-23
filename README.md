@@ -1,6 +1,6 @@
-# Nosso Dia — Backend Constitution
+# BeeHome — Backend Constitution
 
-Nosso Dia is a Java 25 and Spring Boot backend designed to remain simple,
+BeeHome is a Java 25 and Spring Boot backend designed to remain simple,
 maintainable, testable, and loosely coupled. Architecture exists to make change
 easier. Choose the simplest solution that preserves clear responsibilities and
 allows the codebase to evolve safely.
@@ -22,6 +22,15 @@ means the default unless a concrete reason justifies a deviation; MAY means opti
 An explicit task can require an exception; explain its reason and consequences.
 Keep the constitution and relevant guides aligned when changing a convention.
 
+Explore documentation relationships in the [interactive documentation graph](docs/knowledge-graph.html).
+Regenerate it after changing Markdown links with `python3 scripts/generate-doc-graph.py`.
+
+For task context, read the constitution and only the guide(s) relevant to the
+work. Do not reread the whole README on every task; consult only the relevant
+section when needed. Historical PRDs/PDRs are not mandatory reading. Consult
+them only when a task explicitly refers to one or when current code and
+maintained guidance do not resolve a specific requirement.
+
 ## Current scope
 
 The repository provides email/password registration and login, JWT access tokens,
@@ -41,6 +50,8 @@ links. See the [family members integration guide](docs/family-members.md) and
 BE-04 provides recurring routines, date-specific notes/items, resolved daily plans,
 and family timezones. See the [planning integration guide](docs/planning.md) and
 [Routines and Daily Planning PRD](docs/be-04-routines-daily-planning-prd.md).
+BE-05 is the proposed daily execution and history scope. See the
+[Daily Execution and History PRD](docs/be-05-daily-execution-history-prd.md).
 Feature names and API examples below illustrate organization; they are not approved
 requirements and do not authorize implementing business features.
 
@@ -56,7 +67,7 @@ The Maven POM and Compose file define the installed versions. Let Spring Boot
 manage dependency versions where supported. Add a dependency only for a clear
 need that existing Java or Spring functionality cannot adequately meet.
 All documentation, code, comments, configuration messages, and API text MUST be
-in English. Keep Nosso Dia as the product name.
+in English. Keep BeeHome as the product name.
 
 ## Architecture
 
@@ -66,7 +77,7 @@ Do not introduce microservices or architectural patterns without a demonstrated
 limitation of the existing design.
 
 ```text
-Client → REST / JSON → Nosso Dia Backend → PostgreSQL
+Client → REST / JSON → BeeHome Backend → PostgreSQL
 
 HTTP request → Controller → Service → Repository → Database
 ```
@@ -88,7 +99,7 @@ services merely to follow a diagram.
 The following packages are illustrative, not a scaffold to create in advance:
 
 ```text
-com.nossodia
+com.beehome
 ├── auth
 ├── family
 ├── children
@@ -313,15 +324,15 @@ of the Compose database. They verify migrations, health, API documentation,
 authentication, recovery, session concurrency, and localization.
 Docker and network access are required on first use to download
 dependencies and images. The JAR is generated at
-`target/nosso-dia-0.0.1-SNAPSHOT.jar`.
+`target/beehome-0.0.1-SNAPSHOT.jar`.
 
 ## Project structure
 
-- `src/main/java/com/nossodia`: application and configuration.
+- `src/main/java/com/beehome`: application and configuration.
 - `src/main/resources/db/migration`: Flyway migrations.
-- `src/test/java/com/nossodia`: integration tests and Testcontainers configuration.
+- `src/test/java/com/beehome`: integration tests and Testcontainers configuration.
 
-The initial migration creates the `nosso_dia` schema; Flyway history is stored in
+Migration V1 creates the legacy `nosso_dia` schema, and V8 renames it to `beehome`; Flyway history is stored in
 `public`. Hibernate validates mappings without creating or changing tables.
 Subsequent migrations create users, refresh/reset tokens, external identities,
 families, memberships, family members, family timezones, routines, and daily plans.

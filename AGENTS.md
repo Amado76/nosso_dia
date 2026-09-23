@@ -1,8 +1,14 @@
-# Nosso Dia — Backend Constitution
+# BeeHome — Backend Constitution
 
-Read this constitution before every task. Read the relevant guides below before
-changing their area; do not load unrelated guides for routine work. The README
-provides the architecture overview and local execution instructions.
+Read this constitution before every task. Read only the guides relevant to the
+area being changed; do not load unrelated guides for routine work. Do not read
+the entire README for every task: consult only the specific section needed for
+architecture or local execution, and only when the task depends on it. Treat
+old PRDs/PDRs and other historical planning documents as reference material,
+not required context; read one only when the task explicitly concerns it or
+when a specific unresolved requirement cannot be established from current code,
+the constitution, and relevant guides. Prefer the current implementation and
+maintained guides over historical plans.
 
 ## Task-specific guides
 
@@ -16,7 +22,7 @@ provides the architecture overview and local execution instructions.
 
 ## Scope and language
 
-- Write documentation, code, comments, configuration messages, and API text in English. Keep Nosso Dia as the product name.
+- Write documentation, code, comments, configuration messages, and API text in English. Keep BeeHome as the product name.
 - The product domain and final authentication flow are not defined. Do not invent them. Feature examples are illustrative.
 - Follow these rules unless the task explicitly requires an exception. Explain architectural deviations and their consequences.
 

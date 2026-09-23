@@ -357,7 +357,7 @@ To finish provider and frontend configuration later, follow the
 
 `PasswordResetDelivery` is called after the database transaction commits. The SMTP
 adapter uses Spring Boot's mail starter and sends a plain-text English email with
-subject `Reset your Nosso Dia password`, a single-use link, and the configured
+subject `Reset your BeeHome password`, a single-use link, and the configured
 token lifetime. API messages still follow `Accept-Language`; email translation
 is not implemented. The SMTP provider is configurable and no vendor is required.
 

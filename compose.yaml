@@ -1,11 +1,11 @@
-name: nosso-dia
+name: beehome
 
 services:
   postgres:
     image: postgres:18.3
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-nosso_dia}
-      POSTGRES_USER: ${POSTGRES_USER:-nosso_dia}
+      POSTGRES_DB: ${POSTGRES_DB:-beehome}
+      POSTGRES_USER: ${POSTGRES_USER:-beehome}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env}
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
@@ -22,12 +22,12 @@ services:
     profiles: ["app"]
     build: .
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-nosso_dia}
-      DB_USERNAME: ${POSTGRES_USER:-nosso_dia}
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-beehome}
+      DB_USERNAME: ${POSTGRES_USER:-beehome}
       DB_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env}
       AUTH_ALLOW_EPHEMERAL_KEY: ${AUTH_ALLOW_EPHEMERAL_KEY:-false}
       AUTH_SIGNING_KEY: ${AUTH_SIGNING_KEY:-}
-      AUTH_ISSUER: ${AUTH_ISSUER:-nosso-dia}
+      AUTH_ISSUER: ${AUTH_ISSUER:-beehome}
       AUTH_ACCESS_TTL: ${AUTH_ACCESS_TTL:-15m}
       AUTH_REFRESH_TTL: ${AUTH_REFRESH_TTL:-30d}
       AUTH_RESET_TTL: ${AUTH_RESET_TTL:-30m}

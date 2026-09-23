@@ -6,7 +6,7 @@ or reporting. [AGENTS.md](../AGENTS.md) defines the mandatory constitution;
 
 ## Feature ownership
 
-Organize code under `com.nossodia` by business capability. Names such as `children`,
+Organize code under `com.beehome` by business capability. Names such as `children`,
 `family`, and `routine` are examples until product requirements establish them.
 Do not generate empty modules in anticipation of future work.
 

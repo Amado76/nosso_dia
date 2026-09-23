@@ -7,7 +7,7 @@ Creation quotas remain a rollout decision; no quota is enforced in this incremen
 
 ## Problem and outcome
 
-Authentication identifies a Nosso Dia user. It does not establish which family's
+Authentication identifies a BeeHome user. It does not establish which family's
 data that user can access. Before introducing family members and routines, the
 backend needs a family boundary enforced on every private operation.
 

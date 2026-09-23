@@ -8,11 +8,11 @@
 		<version>4.1.1</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.nossodia</groupId>
-	<artifactId>nosso-dia</artifactId>
+	<groupId>com.beehome</groupId>
+	<artifactId>beehome</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>Nosso Dia</name>
-	<description>Nosso Dia backend</description>
+	<name>BeeHome</name>
+	<description>BeeHome backend</description>
 	<properties>
 		<java.version>25</java.version>
 		<springdoc.version>3.1.1</springdoc.version>
