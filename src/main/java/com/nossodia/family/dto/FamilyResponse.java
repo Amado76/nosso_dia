@@ -5,5 +5,5 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.UUID;
 
-@Schema(requiredProperties = {"id", "name", "myRole", "createdAt", "updatedAt"})
-public record FamilyResponse(UUID id, String name, FamilyRole myRole, Instant createdAt, Instant updatedAt) {}
+@Schema(requiredProperties = {"id", "name", "timezone", "myRole", "createdAt", "updatedAt"})
+public record FamilyResponse(UUID id, String name, String timezone, FamilyRole myRole, Instant createdAt, Instant updatedAt) {}

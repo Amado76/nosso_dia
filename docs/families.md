@@ -1,4 +1,4 @@
-# Family integration — BE-02
+# Family integration — BE-02 and BE-04
 
 This is the implemented family API contract. The [PRD](be-02-family-authorization-prd.md)
 records the scope and selected policies. Authentication follows
@@ -8,7 +8,7 @@ Routes are relative to the configured backend origin, with no additional prefix.
 ## Access and scope
 
 A `FamilyMembership` grants a login identity (`User`) a role in one family. A
-future `FamilyMember` will describe a person, including a child without a login.
+`FamilyMember` describes a person, including a child without a login.
 Creating a family creates only the family and its creator's OWNER membership.
 
 Each family has one OWNER through the supported API. A user may belong to multiple
@@ -22,10 +22,11 @@ not token claims or client-provided identifiers.
 | Create family | Allowed with authentication | Allowed | Allowed | Allowed |
 | List families | Only accessible families | Only accessible families | Only accessible families | Only accessible families |
 | Read family | 404 | Allowed | Allowed | Allowed |
-| Rename family | 404 | 403 | Allowed | Allowed |
+| Edit family | 404 | 403 | Allowed | Allowed |
 
 There are no routes for deletion, archival, invitations, membership listing or
-editing, leaving, ownership transfer, or person/child profiles. Only OWNER
+editing, leaving, or ownership transfer through this API. Person profiles use
+the [family members API](family-members.md). Only OWNER
 memberships are created by public APIs today; ADMIN/MEMBER behavior is supported
 and tested for future membership flows. A future role-management implementation
 must coordinate permission changes with writes and preserve one OWNER per family.
@@ -45,10 +46,12 @@ must coordinate permission changes with writes and preserve one OWNER per family
 `POST /api/families`
 
 ```json
-{"name":"Amado Family"}
+{"name":"Amado Family","timezone":"America/Asuncion"}
 ```
 
-The only accepted field is `name`: a required, non-null JSON string. Surrounding
+Accepted fields are `name` and `timezone`, both required, non-null JSON strings.
+`timezone` must be a valid IANA identifier; see [Family timezone](#family-timezone).
+For `name`, Surrounding
 whitespace is stripped using Java `String.strip()`. The normalized value must not
 be blank and must contain at most 120 UTF-16 code units (supplementary characters
 such as many emoji count as two). Capitalization, accents, and internal whitespace
@@ -61,6 +64,7 @@ Returns `201 Created`, with `Location: /api/families/{id}` and this representati
 {
   "id":"d6b68b76-283b-46f6-a65d-8d38ce6d1d13",
   "name":"Amado Family",
+  "timezone":"America/Asuncion",
   "myRole":"OWNER",
   "createdAt":"2026-09-21T12:00:00Z",
   "updatedAt":"2026-09-21T12:00:00Z"
@@ -71,11 +75,12 @@ Returns `201 Created`, with `Location: /api/families/{id}` and this representati
 | --- | --- |
 | `id` | Server-generated UUID identifying the family |
 | `name` | Normalized family name |
+| `timezone` | Persisted IANA timezone, e.g. `America/Asuncion` |
 | `myRole` | Caller's role in this family: `OWNER`, `ADMIN`, or `MEMBER` |
 | `createdAt` | Creation instant |
-| `updatedAt` | Most recent successful create/rename instant |
+| `updatedAt` | Most recent persisted name/timezone change instant |
 
-All five fields are required and non-null. No user identities, emails, people, or
+All six fields are required and non-null. No user identities, emails, people, or
 membership collections are included. Creation persists the family and initial
 OWNER membership in one transaction: failure rolls back both. It neither issues
 tokens nor sends invitations or modifies other families.
@@ -103,6 +108,7 @@ Returns `200 OK`:
   "items":[{
     "id":"d6b68b76-283b-46f6-a65d-8d38ce6d1d13",
     "name":"Amado Family",
+  "timezone":"America/Asuncion",
     "myRole":"OWNER",
     "createdAt":"2026-09-21T12:00:00Z",
     "updatedAt":"2026-09-21T12:00:00Z"
@@ -118,7 +124,7 @@ above; `page`/`size` reflect the requested or default integer values. `hasNext` 
 boolean indicating another slice. Users without memberships and pages beyond the
 available results receive `items: []` and `hasNext: false`.
 
-## Read or rename a family
+## Read or edit a family
 
 `GET /api/families/{familyId}` requires a valid UUID and a membership in that
 family. It returns `200 OK` with the same family representation as creation,
@@ -130,22 +136,38 @@ including the caller's current `myRole`.
 {"name":"Updated Family Name"}
 ```
 
-Only `name` is writable, using the creation rules. Although this is a partial
-update of the family resource, its only editable field must be present: omitted
-`name`, null, `{}`, and a missing body are invalid. Success returns `200 OK` with
-the updated representation. `id`, `createdAt`, and memberships are preserved;
-`updatedAt` records the rename time, including assignment of the existing name.
-No ETags or conflict preconditions are supported. Concurrent renames use last
-committed write wins. All four endpoints return bodies on success; none returns 204.
+Both `name` and `timezone` are writable using their creation rules. Each is
+optional in PATCH: omission preserves its existing value, while explicit null
+is invalid. Empty objects and missing bodies are invalid. Success returns
+`200 OK` with the updated representation. `updatedAt` changes only when the
+normalized persisted state changes. Repeated identical PATCHes preserve it.
+No ETags or conflict preconditions are supported. Concurrent edits use last
+committed write wins. All four endpoints return bodies; none returns 204.
+
+## Family timezone
+
+BE-04 requires a valid IANA zone accepted by Java `ZoneId.of` and present in the
+runtime timezone database, such as `America/Asuncion`, `Europe/Lisbon`, or `UTC`.
+Offset-only values (`+03:00`, `UTC+03:00`), unknown zones, null, and blank are
+invalid. Zone identifiers are case-sensitive and are not trimmed or inferred.
+Family creation requires timezone. OWNER/ADMIN can change only timezone with
+`{"timezone":"Europe/Lisbon"}`, or change it together with name.
+
+Flyway V7 backfills existing families to UTC without changing their audit times.
+UTC is a neutral migration value, not an inferred location: the UI should ask
+the user to select the intended zone. There is no database default for future
+family inserts. New family creation clients must send timezone.
+Changes affect local-day interpretation for planning; stored dates and wall
+times are never rewritten. See [planning](planning.md).
 
 ## Errors and client handling
 
 | HTTP | Stable code / condition | Client action |
 | --- | --- | --- |
-| 400 | `VALIDATION_ERROR`: name constraints or page/size bounds | Correct the input; show safe field feedback when available |
+| 400 | `VALIDATION_ERROR`: name/timezone constraints, empty PATCH, or page/size bounds | Correct the input; show safe field feedback when available |
 | 400 | Invalid JSON, wrong value type, unknown body field, invalid UUID, malformed query syntax, missing body | Fix the request; framework responses may omit an application code |
 | 401 | `UNAUTHENTICATED`: missing/invalid/expired access token or unavailable current user | Follow BE-01 renewal/login flow |
-| 403 | `FORBIDDEN`: MEMBER attempting to rename its family | Show insufficient permissions; refreshing does not grant access |
+| 403 | `FORBIDDEN`: MEMBER attempting to edit its family | Show insufficient permissions; refreshing does not grant access |
 | 404 | `FAMILY_NOT_FOUND`: missing family or no membership | Clear unavailable selection and reload accessible families |
 | 405 | Unsupported method on a mapped route, including DELETE | Do not offer unimplemented operations |
 | 415 | Unsupported request media type | Send JSON |
@@ -153,7 +175,7 @@ committed write wins. All four endpoints return bodies on success; none returns 
 
 Unknown and inaccessible families use the same safe 404 contract. Validation may
 reject a malformed request before membership lookup; it never includes protected
-family data. Responses for valid MEMBER rename attempts return 403. UI code must
+family data. Responses for valid MEMBER edit attempts return 403. UI code must
 branch on stable codes, not localized text; framework/proxy failures can lack
 codes or JSON altogether.
 
@@ -192,9 +214,9 @@ present for every 400 response.
 ## UI flow, retries, and limitations
 
 1. Authenticate through BE-01 and load the family list using the access token.
-2. If empty, offer family creation. Otherwise show a selector; users may have
+2. If empty, offer family creation with a timezone selector. Otherwise show a selector; users may have
    multiple families. After creation, select the returned family ID.
-3. Load details when selecting a family. Use `myRole` to present rename controls,
+3. Load details when selecting a family. Use `myRole` to present name/timezone controls,
    while treating backend permission responses as authoritative.
 4. Store a selected ID only as navigation state; it is neither a token claim nor
    a field on the user. Revalidate stored selections and clear unavailable ones.
@@ -204,7 +226,7 @@ present for every 400 response.
 GET can be retried. There are no idempotency keys: a POST retry after a timeout
 may create a duplicate family. Reload and let the user reconcile before creating
 again; duplicate names mean a matching name alone is not proof of the outcome.
-PATCH assigns a name but retrying can overwrite another writer's change; reload
+PATCH assigns name and/or timezone but retrying can overwrite another writer's change; reload
 and confirm the intended edit first. Follow BE-01's bounded refresh behavior for
 401 and do not automatically repeat ambiguous mutations or refresh on 403/404.
 

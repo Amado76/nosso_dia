@@ -38,6 +38,9 @@ membership administration, and the remaining product domain are not implemented.
 BE-03 provides family people profiles, active-state management, and self-account
 links. See the [family members integration guide](docs/family-members.md) and
 [BE-03 PRD](docs/be-03-family-members-prd.md). Avatar writes await the media feature.
+BE-04 provides recurring routines, date-specific notes/items, resolved daily plans,
+and family timezones. See the [planning integration guide](docs/planning.md) and
+[Routines and Daily Planning PRD](docs/be-04-routines-daily-planning-prd.md).
 Feature names and API examples below illustrate organization; they are not approved
 requirements and do not authorize implementing business features.
 
@@ -117,7 +120,8 @@ family/
 ├── exception/
 │   └── FamilyException.java
 └── dto/
-    ├── FamilyNameRequest.java
+    ├── CreateFamilyRequest.java
+    ├── PatchFamilyRequest.java
     ├── FamilyPage.java
     └── FamilyResponse.java
 ```
@@ -320,4 +324,4 @@ dependencies and images. The JAR is generated at
 The initial migration creates the `nosso_dia` schema; Flyway history is stored in
 `public`. Hibernate validates mappings without creating or changing tables.
 Subsequent migrations create users, refresh/reset tokens, external identities,
-families, memberships, and family members.
+families, memberships, family members, family timezones, routines, and daily plans.

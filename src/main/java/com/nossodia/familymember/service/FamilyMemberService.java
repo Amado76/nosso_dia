@@ -33,6 +33,16 @@ public class FamilyMemberService {
         this.clock = clock;
     }
 
+    /** Family-scoped access used by planning; writes serialize with member deactivation. */
+    @Transactional
+    public FamilyMemberResponse requireActive(UUID userId, UUID familyId, UUID memberId, boolean forWrite) {
+        authorization.requireMembership(userId, familyId);
+        var member = (forWrite ? members.lockByFamilyIdAndId(familyId, memberId)
+                : members.findByFamilyIdAndId(familyId, memberId)).orElseThrow(FamilyMemberException::notFound);
+        if (!member.isActive()) throw FamilyMemberException.notFound();
+        return FamilyMemberResponse.from(member);
+    }
+
     @Transactional
     public FamilyMemberResponse create(UUID userId, UUID familyId, CreateFamilyMemberRequest request) {
         authorization.requireEditor(authorization.requireMembership(userId, familyId));

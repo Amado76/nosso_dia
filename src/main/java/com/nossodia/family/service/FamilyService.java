@@ -34,10 +34,10 @@ public class FamilyService {
     }
 
     @Transactional
-    public FamilyResponse create(UUID userId, String name) {
+    public FamilyResponse create(UUID userId, String name, String timezone) {
         users.current(userId);
         var now = clock.instant();
-        var family = families.save(new Family(name, now));
+        var family = families.save(new Family(name, timezone, now));
         memberships.save(new FamilyMembership(family.getId(), userId, FamilyRole.OWNER, now));
         return response(family, FamilyRole.OWNER);
     }
@@ -59,15 +59,17 @@ public class FamilyService {
     }
 
     @Transactional
-    public FamilyResponse rename(UUID userId, UUID familyId, String name) {
+    public FamilyResponse edit(UUID userId, UUID familyId, com.nossodia.family.dto.PatchFamilyRequest request) {
         var role = authorization.requireMembership(userId, familyId);
         authorization.requireEditor(role);
-        var family = families.findById(familyId).orElseThrow(FamilyException::notFound);
-        family.rename(name, clock.instant());
+        var family = families.lockById(familyId).orElseThrow(FamilyException::notFound);
+        if (request.fields().isEmpty()) throw new com.nossodia.shared.exception.InputException();
+        family.edit(request.fields().contains("name") ? request.name() : family.getName(),
+                request.fields().contains("timezone") ? request.timezone() : family.getTimezone(), clock.instant());
         return response(family, role);
     }
 
     private static FamilyResponse response(Family family, FamilyRole role) {
-        return new FamilyResponse(family.getId(), family.getName(), role, family.getCreatedAt(), family.getUpdatedAt());
+        return new FamilyResponse(family.getId(), family.getName(), family.getTimezone(), role, family.getCreatedAt(), family.getUpdatedAt());
     }
 }

@@ -30,7 +30,7 @@ class FamilyMemberTests {
 
     UUID family(UUID user) throws Exception {
         return id(mvc.perform(post("/api/families").with(jwt().jwt(j -> j.subject(user.toString())))
-                .contentType("application/json").content("{\"name\":\"Family\"}")).andExpect(status().isCreated()));
+                .contentType("application/json").content("{\"name\":\"Family\",\"timezone\":\"UTC\"}")).andExpect(status().isCreated()));
     }
 
     UUID id(ResultActions result) throws Exception {

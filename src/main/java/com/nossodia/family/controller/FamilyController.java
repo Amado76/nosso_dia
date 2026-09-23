@@ -38,8 +38,8 @@ public class FamilyController {
             headers = @Header(name = "Location", description = "Relative URI of the created family", schema = @Schema(type = "string")),
             content = @Content(schema = @Schema(implementation = FamilyResponse.class)))
     public ResponseEntity<FamilyResponse> create(@AuthenticationPrincipal Jwt principal,
-            @Valid @RequestBody FamilyNameRequest request) {
-        var family = families.create(UUID.fromString(principal.getSubject()), request.name());
+            @Valid @RequestBody CreateFamilyRequest request) {
+        var family = families.create(UUID.fromString(principal.getSubject()), request.name(), request.timezone());
         return ResponseEntity.created(URI.create("/api/families/" + family.id())).body(family);
     }
 
@@ -63,12 +63,12 @@ public class FamilyController {
     }
 
     @PatchMapping("/{familyId}")
-    @Operation(summary = "Rename a family as OWNER or ADMIN", description = "Only name is writable and required. Last committed rename wins.")
+    @Operation(summary = "Edit a family as OWNER or ADMIN", description = "Name and timezone are optional; omission preserves, null is invalid. Empty patches are invalid. Last committed edit wins.")
     @ApiResponse(responseCode = "200", description = "Updated family details", content = @Content(schema = @Schema(implementation = FamilyResponse.class)))
     @ApiResponse(responseCode = "403", description = "Membership does not allow renaming", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     @ApiResponse(responseCode = "404", description = "Family missing or inaccessible", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     public FamilyResponse rename(@AuthenticationPrincipal Jwt principal, @PathVariable UUID familyId,
-            @Valid @RequestBody FamilyNameRequest request) {
-        return families.rename(UUID.fromString(principal.getSubject()), familyId, request.name());
+            @Valid @RequestBody PatchFamilyRequest request) {
+        return families.edit(UUID.fromString(principal.getSubject()), familyId, request);
     }
 }
