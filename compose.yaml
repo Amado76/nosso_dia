@@ -45,11 +45,17 @@ services:
       MAIL_STARTTLS_ENABLED: ${MAIL_STARTTLS_ENABLED:-true}
       MAIL_STARTTLS_REQUIRED: ${MAIL_STARTTLS_REQUIRED:-true}
       MAIL_SSL_ENABLED: ${MAIL_SSL_ENABLED:-false}
+      MEDIA_STORAGE_DIRECTORY: /var/lib/beehome/media
+      MEDIA_MAX_BYTES: ${MEDIA_MAX_BYTES:-10485760}
+      MEDIA_MAX_REQUEST_BYTES: ${MEDIA_MAX_REQUEST_BYTES:-11534336}
     ports:
       - "127.0.0.1:${APP_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - media-data:/var/lib/beehome/media
 
 volumes:
   postgres-data:
+  media-data:

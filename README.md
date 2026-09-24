@@ -56,6 +56,9 @@ and paginated history. See the [execution integration guide](docs/daily-executio
 BE-06 provides family-wide study subjects, timer/manual study sessions, and
 history and summary queries. See the [study tracking integration guide](docs/study-tracking.md)
 and [Study Tracking PRD](docs/be-06-study-tracking-prd.md).
+BE-07 provides private family media storage and child photo records. See the
+[photos and media integration guide](docs/photos-media.md) and
+[Photos and Media PRD](docs/be-07-photos-media-prd.md).
 Feature names and API examples below illustrate organization; they are not approved
 requirements and do not authorize implementing business features.
 
