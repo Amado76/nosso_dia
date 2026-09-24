@@ -25,6 +25,11 @@ public class DailyExecutionService {
     private final FamilyService families;
     private final Clock clock;
 
+    @Transactional(readOnly = true)
+    public boolean ownsItem(UUID family, UUID member, UUID item) {
+        return items.countOwned(family, member, item) == 1;
+    }
+
     public DailyExecutionService(DailyExecutionRepository executions, DailyExecutionItemRepository items,
             DailyPlanService planning, FamilyAuthorizationService authorization, FamilyMemberService members,
             FamilyService families, Clock clock) {

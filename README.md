@@ -53,6 +53,9 @@ and family timezones. See the [planning integration guide](docs/planning.md) and
 BE-05 provides daily execution snapshots, completion, finalization, corrections,
 and paginated history. See the [execution integration guide](docs/daily-execution.md) and
 [Daily Execution and History PRD](docs/be-05-daily-execution-history-prd.md).
+BE-06 provides family-wide study subjects, timer/manual study sessions, and
+history and summary queries. See the [study tracking integration guide](docs/study-tracking.md)
+and [Study Tracking PRD](docs/be-06-study-tracking-prd.md).
 Feature names and API examples below illustrate organization; they are not approved
 requirements and do not authorize implementing business features.
 

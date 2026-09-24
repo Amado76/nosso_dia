@@ -59,6 +59,13 @@ public class FamilyService {
     }
 
     @Transactional
+    public void lockForWrite(UUID userId, UUID familyId) {
+        authorization.requireEditor(authorization.requireMembership(userId, familyId));
+        // The caller's transaction retains this lock for family-scoped allocation limits.
+        families.lockById(familyId).orElseThrow(FamilyException::notFound);
+    }
+
+    @Transactional
     public FamilyResponse edit(UUID userId, UUID familyId, com.beehome.family.dto.PatchFamilyRequest request) {
         var role = authorization.requireMembership(userId, familyId);
         authorization.requireEditor(role);
