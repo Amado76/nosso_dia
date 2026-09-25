@@ -8,7 +8,8 @@ exactly one family; names may repeat and UUIDs identify people.
 ## Setup and scope
 
 Use the configured application origin and the routes below. Normal application
-startup applies Flyway V6. No new environment variables, external services, or
+startup applies Flyway migrations, including V6 for profiles and V13 for preferences.
+No new environment variables, external services, or
 feature-specific rate limits are required. Follow [authentication](authentication.md)
 for login and bounded token refresh, and [families](families.md) to select an
 accessible family. Authentication and existing family memberships are prerequisites.
@@ -113,6 +114,7 @@ is:
   "memberType":"CHILD",
   "birthDate":"2019-03-22",
   "color":"#A8D8EA",
+  "preferences":{},
   "avatarReference":null,
   "linkedUser":false,
   "active":true,
@@ -126,7 +128,8 @@ Every response property is present. Only `birthDate`, `color`, and
 tokens, and membership details are never returned. Timestamps are UTC instants.
 
 PATCH accepts a nonempty JSON object containing any subset of `name`,
-`memberType`, `birthDate`, and `color`. Omitted fields retain their values. Explicit
+`memberType`, `birthDate`, `color`, and `preferences`. Omitted fields retain their
+values. Explicit
 null clears `birthDate` or `color`, while null for `name`/`memberType` is invalid.
 Field presence distinguishes omitted values from null. `avatarReference` is
 rejected until the media contract exists. For example, `{"birthDate":null,"color":"#F6C1C7"}` clears
@@ -148,6 +151,84 @@ does not delete the user, membership, or person and works for inactive members.
 Deactivate/reactivate are idempotent assignments; repeating the current state
 returns 200. `updatedAt` changes only when persisted member state changes.
 No operation sends invitations or changes authentication tokens.
+
+## UI preferences
+
+Preferences belong to the family person, including children without login accounts.
+They are shared across authorized viewers of that profile, rather than tied to the
+viewing user or device. Both ADULT and CHILD profiles support preferences.
+Linking/unlinking an account and deactivating/reactivating a person preserve them.
+
+Every member response includes a non-null `preferences` JSON object, initially
+`{}`. It contains explicitly selected values only. The existing `color` remains
+the general member color; it is independent of `preferences.completedTaskColor`.
+No value is copied from `color`, and the backend does not assign a default completed
+task color. The UI uses its own default when the preference is absent.
+
+Use the existing endpoint, with the usual Bearer token and JSON headers:
+
+```http
+PATCH /api/families/{familyId}/members/{memberId}
+Content-Type: application/json
+Authorization: Bearer <accessToken>
+```
+
+```json
+{"preferences":{"completedTaskColor":"#86b8d9"}}
+```
+
+Success is `200` with the full member response, including:
+
+```json
+{"preferences":{"completedTaskColor":"#86B8D9"}}
+```
+
+This last example is a response excerpt. Obtain preferences through member detail
+or list responses; execution responses still contain only their existing member
+summary. Creation initializes preferences to `{}`; the POST request does not accept
+`preferences`. Create the member first, then PATCH preferences if needed.
+
+| Field/key | Accepted values and behavior |
+| --- | --- |
+| `preferences` omitted | Preserve all preferences. |
+| `preferences: {}` | No preference changes; valid as the sole PATCH field. |
+| `preferences: null` or a non-object | `400 VALIDATION_ERROR`. |
+| `completedTaskColor` | String matching exactly `#[0-9a-fA-F]{6}`; stored and returned uppercase. |
+| `completedTaskColor: null` | Remove the key; the UI resumes its default. |
+| Omitted preference key | Preserve its stored value. |
+| Unsupported key | Reject the entire PATCH with `400 VALIDATION_ERROR`, including when its value is null. |
+
+Color names, three/eight-digit hex colors, whitespace, numbers, booleans, arrays,
+and nested objects are invalid completed-task colors. Key names are case-sensitive.
+An invalid preference rejects all changes in that request, including profile edits.
+Domain validation uses localized ProblemDetail with `VALIDATION_ERROR`; a field
+errors array is not guaranteed. Malformed JSON retains framework error handling.
+
+Any current family member may read preferences. Only OWNER/ADMIN may update them,
+including for inactive profiles. A linked account does not grant edit permission.
+Existing 401, 403, and family/member 404 disclosure rules apply unchanged.
+
+Updates merge keys under the same transactional row lock as other profile writes.
+Concurrent changes to different fields/keys are preserved; the last serialized
+update to the same key wins. There are no ETags or conflict detection. Repeating
+an unchanged value or removing an absent key does not change `updatedAt`.
+After an uncertain PATCH outcome, reload before retrying because a retry may
+overwrite another editor's newer value.
+
+Only documented UI preferences belong here. Tasks, completion status, permissions,
+ownership, and other business data must remain in dedicated domain structures.
+New keys require backend validation, API documentation, and tests, usually without
+a database migration. Unknown stored keys are preserved during partial updates for
+rolling deployment compatibility, but clients cannot submit unsupported keys.
+Clients should ignore response keys they do not understand.
+
+V13 adds `preferences JSONB NOT NULL DEFAULT '{}'` with an object-type constraint.
+Existing profiles receive an empty object and keep their existing color and account
+links. No JSON index, new dependency, environment variable, or endpoint is required.
+Deploy through Flyway; older application code can leave the additive column in
+place on rollback. Preserve its data and never edit an applied migration.
+Validate the upgrade on populated data and plan for PostgreSQL's ALTER TABLE lock
+when deploying to large or busy tables.
 
 ## Errors, localization, and client retries
 
@@ -204,7 +285,8 @@ membership with a link is rejected by PostgreSQL; a later membership-removal
 feature must unlink affected people first. The database never cascade-deletes
 people. One account may be linked once per family, including inactive people.
 
-Profile updates use last committed update wins, without ETags or version fields.
+Profile updates use last committed update wins per field/preference key, without
+ETags or version fields.
 All writes lock the person row so profile/state edits cannot overwrite concurrent
 links. Omitted PATCH fields remain unchanged.
 

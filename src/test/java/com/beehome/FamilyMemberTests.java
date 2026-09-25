@@ -49,6 +49,125 @@ class FamilyMemberTests {
     }
 
     @Test
+    void storesChildPreferencesWithoutAnAccountAndSupportsPartialUpdates() throws Exception {
+        UUID owner = user(), family = family(owner);
+        UUID child = id(create(owner, family, """
+                {"name":"Child","memberType":"CHILD","color":"#112233"}
+                """).andExpect(status().isCreated()).andExpect(jsonPath("$.preferences").isEmpty()));
+        String detail = path(family) + "/" + child;
+        request(owner, patch(detail).contentType("application/json").content("""
+                {"preferences":{"completedTaskColor":"#86b8d9"}}
+                """)).andExpect(status().isOk()).andExpect(jsonPath("$.preferences.completedTaskColor").value("#86B8D9"))
+                .andExpect(jsonPath("$.linkedUser").value(false)).andExpect(jsonPath("$.color").value("#112233"));
+        request(owner, patch(detail).contentType("application/json").content("""
+                {"name":"Updated"}
+                """)).andExpect(status().isOk()).andExpect(jsonPath("$.preferences.completedTaskColor").value("#86B8D9"));
+        String before = request(owner, get(detail)).andReturn().getResponse().getContentAsString();
+        for (String body : new String[]{"""
+                {"preferences":{}}
+                """, """
+                {"preferences":{"completedTaskColor":"#86b8d9"}}
+                """}) {
+            request(owner, patch(detail).contentType("application/json").content(body))
+                    .andExpect(status().isOk()).andExpect(content().json(before));
+        }
+        request(owner, get(path(family))).andExpect(jsonPath("$.items[0].preferences.completedTaskColor").value("#86B8D9"));
+        request(owner, patch(detail).contentType("application/json").content("""
+                {"preferences":{"completedTaskColor":null}}
+                """)).andExpect(status().isOk()).andExpect(jsonPath("$.preferences").isEmpty());
+        request(owner, get(detail)).andExpect(jsonPath("$.preferences").isEmpty());
+    }
+
+    @Test
+    void rejectsUnsupportedPreferencesAndInvalidColorsAtomically() throws Exception {
+        UUID owner = user(), family = family(owner), member = member(owner, family);
+        String detail = path(family) + "/" + member;
+        for (String value : new String[]{"null", "[]", "42", "true", "\"text\"",
+                "{\"unknown\":true}", "{\"status\":\"DONE\"}",
+                "{\"completedTaskColor\":\"#86B8D9\",\"unknown\":true}",
+                "{\"completedTaskColor\":42}", "{\"completedTaskColor\":[]}",
+                "{\"completedTaskColor\":{}}", "{\"completedTaskColor\":true}",
+                "{\"completedTaskColor\":\"red\"}", "{\"completedTaskColor\":\"#ABC\"}",
+                "{\"completedTaskColor\":\"#11223344\"}", "{\"completedTaskColor\":\" #112233\"}",
+                "{\"completedTaskColor\":\"#11223G\"}"}) {
+            request(owner, patch(detail).contentType("application/json")
+                    .content("{\"name\":\"Must roll back\",\"preferences\":" + value + "}"))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        }
+        request(owner, get(detail)).andExpect(jsonPath("$.name").value("Person"))
+                .andExpect(jsonPath("$.preferences").isEmpty());
+    }
+
+    @Test
+    void scopesPreferenceUpdatesToFamilyEditorsEvenForLinkedAccounts() throws Exception {
+        UUID owner = user(), family = family(owner), member = member(owner, family);
+        UUID reader = user(), admin = user(), stranger = user();
+        membership(family, reader, "MEMBER");
+        membership(family, admin, "ADMIN");
+        String detail = path(family) + "/" + member;
+        request(reader, put(detail + "/link-me")).andExpect(status().isOk());
+        String body = "{\"preferences\":{\"completedTaskColor\":\"#86B8D9\"}}";
+        mvc.perform(patch(detail).contentType("application/json").content(body)).andExpect(status().isUnauthorized());
+        request(reader, patch(detail).contentType("application/json").content(body)).andExpect(status().isForbidden());
+        request(stranger, patch(detail).contentType("application/json").content(body)).andExpect(status().isNotFound());
+        UUID other = family(owner);
+        request(owner, patch(path(other) + "/" + member).contentType("application/json").content(body))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("FAMILY_MEMBER_NOT_FOUND"));
+        request(owner, post(detail + "/deactivate")).andExpect(status().isOk());
+        request(admin, patch(detail).contentType("application/json").content(body)).andExpect(status().isOk());
+        request(reader, get(detail)).andExpect(jsonPath("$.preferences.completedTaskColor").value("#86B8D9"));
+        request(reader, delete(detail + "/link")).andExpect(status().isNoContent());
+        request(owner, get(detail)).andExpect(jsonPath("$.preferences.completedTaskColor").value("#86B8D9"));
+    }
+
+    @Test
+    void preservesOtherStoredKeysWhileRejectingTheirSubmission() throws Exception {
+        UUID owner = user(), family = family(owner), member = member(owner, family);
+        // Simulate a key persisted by a newer application during a rolling deployment.
+        jdbc.update("update beehome.family_members set preferences = '{\"futureUiPreference\":true}'::jsonb where id = ?", member);
+        String detail = path(family) + "/" + member;
+        request(owner, patch(detail).contentType("application/json").content("""
+                {"preferences":{"completedTaskColor":"#86B8D9"}}
+                """)).andExpect(status().isOk()).andExpect(jsonPath("$.preferences.futureUiPreference").value(true));
+        request(owner, patch(detail).contentType("application/json").content("""
+                {"preferences":{"futureUiPreference":false}}
+                """)).andExpect(status().isBadRequest());
+        request(owner, patch(detail).contentType("application/json").content("""
+                {"preferences":{"completedTaskColor":null}}
+                """)).andExpect(status().isOk()).andExpect(jsonPath("$.preferences.futureUiPreference").value(true));
+        request(owner, get(detail)).andExpect(jsonPath("$.preferences.futureUiPreference").value(true))
+                .andExpect(jsonPath("$.preferences.completedTaskColor").doesNotExist());
+    }
+
+    @Test
+    void concurrentProfileAndPreferenceUpdatesPreserveBothChanges() throws Exception {
+        UUID owner = user(), family = family(owner), member = member(owner, family);
+        String detail = path(family) + "/" + member;
+        var ready = new java.util.concurrent.CountDownLatch(2);
+        var start = new java.util.concurrent.CountDownLatch(1);
+        try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            var futures = new java.util.ArrayList<java.util.concurrent.Future<?>>();
+            for (String body : new String[]{"""
+                    {"name":"Concurrent name"}
+                    """, """
+                    {"preferences":{"completedTaskColor":"#86B8D9"}}
+                    """}) {
+                futures.add(executor.submit(() -> {
+                    ready.countDown();
+                    assertThat(start.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+                    request(owner, patch(detail).contentType("application/json").content(body)).andExpect(status().isOk());
+                    return null;
+                }));
+            }
+            assertThat(ready.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            for (var future : futures) future.get(10, java.util.concurrent.TimeUnit.SECONDS);
+        }
+        request(owner, get(detail)).andExpect(jsonPath("$.name").value("Concurrent name"))
+                .andExpect(jsonPath("$.preferences.completedTaskColor").value("#86B8D9"));
+    }
+
+    @Test
     void createsNormalizedPeopleWithOptionalFieldsAndPrivateResponse() throws Exception {
         UUID owner = user(), family = family(owner);
         var response = create(owner, family, "{\"name\":\"  Daniel  Amado  \",\"memberType\":\"CHILD\",\"birthDate\":\"2019-03-22\",\"color\":\"#a8d8ea\"}")
@@ -341,6 +460,8 @@ class FamilyMemberTests {
         result.andExpect(jsonPath(detail + "/link-me'].put.responses['409']").exists())
                 .andExpect(jsonPath(detail + "/link'].delete.responses['204']").exists())
                 .andExpect(jsonPath("$.components.schemas.PatchFamilyMemberRequest.properties.fields").doesNotExist())
-                .andExpect(jsonPath("$.components.schemas.PatchFamilyMemberRequest.properties.birthDate").exists());
+                .andExpect(jsonPath("$.components.schemas.PatchFamilyMemberRequest.properties.birthDate").exists())
+                .andExpect(jsonPath("$.components.schemas.PatchFamilyMemberRequest.properties.preferences").exists())
+                .andExpect(jsonPath("$.components.schemas.FamilyMemberResponse.properties.preferences").exists());
     }
 }

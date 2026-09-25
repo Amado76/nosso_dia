@@ -6,15 +6,18 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
+import java.util.Map;
 
-@Schema(requiredProperties = {"id", "familyId", "name", "memberType", "birthDate", "color", "avatarReference", "linkedUser", "active", "createdAt", "updatedAt"})
+@Schema(requiredProperties = {"id", "familyId", "name", "memberType", "birthDate", "color", "preferences", "avatarReference", "linkedUser", "active", "createdAt", "updatedAt"})
 public record FamilyMemberResponse(UUID id, UUID familyId, String name, MemberType memberType,
         @Schema(nullable = true) LocalDate birthDate, @Schema(nullable = true) String color,
         @Schema(nullable = true, description = "Reserved for media; always null in BE-03") String avatarReference,
-        boolean linkedUser, boolean active, Instant createdAt, Instant updatedAt) {
+        boolean linkedUser, boolean active, Instant createdAt, Instant updatedAt,
+        @Schema(description = "Explicit UI preferences; empty object when unset. completedTaskColor is an optional uppercase #RRGGBB string.",
+                example = "{\"completedTaskColor\":\"#86B8D9\"}") Map<String, Object> preferences) {
     public static FamilyMemberResponse from(FamilyMember member) {
         return new FamilyMemberResponse(member.getId(), member.getFamilyId(), member.getName(), member.getMemberType(),
                 member.getBirthDate(), member.getColor(), member.getAvatarReference(), member.getLinkedUserId() != null,
-                member.isActive(), member.getCreatedAt(), member.getUpdatedAt());
+                member.isActive(), member.getCreatedAt(), member.getUpdatedAt(), member.getPreferences());
     }
 }

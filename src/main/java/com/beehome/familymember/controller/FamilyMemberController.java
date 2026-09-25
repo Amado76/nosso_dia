@@ -64,7 +64,7 @@ public class FamilyMemberController {
     }
 
     @PatchMapping("/{memberId}")
-    @Operation(summary = "Edit a person as OWNER or ADMIN", description = "Only name, memberType, birthDate and color. Omitted fields remain unchanged; null clears date/color. Last committed update wins.")
+    @Operation(summary = "Edit a person as OWNER or ADMIN", description = "Only name, memberType, birthDate, color and preferences. Preferences merge by key; null removes a known preference. Omitted fields remain unchanged; null clears date/color. Last committed update wins for the same field/key.")
     @ApiResponse(responseCode = "200", description = "Family person", content = @Content(schema = @Schema(implementation = FamilyMemberResponse.class)))
     public FamilyMemberResponse edit(@AuthenticationPrincipal Jwt principal, @PathVariable UUID familyId, @PathVariable UUID memberId,
             @Valid @RequestBody PatchFamilyMemberRequest request) {

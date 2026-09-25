@@ -82,6 +82,7 @@ public class FamilyMemberService {
         authorization.requireEditor(role);
         request.validatePresence();
         var fields = request.fields();
+        if (fields.contains("preferences")) member.patchPreferences(request.preferences(), clock.instant());
         member.edit(fields.contains("name") ? request.name() : member.getName(),
                 fields.contains("memberType") ? request.memberType() : member.getMemberType(),
                 fields.contains("birthDate") ? request.birthDate() : member.getBirthDate(),

@@ -11,6 +11,27 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class FamilyMemberMigrationTests {
     @Test
+    void upgradesExistingProfilesWithEmptyObjectPreferences() {
+        try (var postgres = new PostgreSQLContainer("postgres:18.3")) {
+            postgres.start();
+            var source = new DriverManagerDataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+            Flyway.configure().dataSource(source).target("12").load().migrate();
+            var jdbc = new JdbcTemplate(source);
+            UUID family = UUID.randomUUID(), child = UUID.randomUUID();
+            jdbc.update("insert into beehome.families(id, name, timezone, created_at, updated_at) values (?, 'Family', 'UTC', now(), now())", family);
+            jdbc.update("insert into beehome.family_members(id, family_id, name, member_type, color, created_at, updated_at) values (?, ?, 'Child', 'CHILD', '#112233', now(), now())", child, family);
+            Flyway.configure().dataSource(source).load().migrate();
+            assertThat(jdbc.queryForObject("select preferences::text from beehome.family_members where id = ?", String.class, child)).isEqualTo("{}");
+            assertThat(jdbc.queryForObject("select color from beehome.family_members where id = ?", String.class, child)).isEqualTo("#112233");
+            for (String value : new String[]{"null", "'null'::jsonb", "'[]'::jsonb", "'42'::jsonb"}) {
+                org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                        jdbc.update("update beehome.family_members set preferences = " + value + " where id = ?", child))
+                        .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            }
+        }
+    }
+
+    @Test
     void upgradesPopulatedBe02DatabaseAndUsesFamilyListIndexes() {
         // Separate database verifies the populated V5 upgrade through the current schema without touching Spring's test database.
         try (var postgres = new PostgreSQLContainer("postgres:18.3")) {

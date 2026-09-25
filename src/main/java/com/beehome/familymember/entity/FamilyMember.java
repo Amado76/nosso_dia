@@ -5,6 +5,10 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Locale;
+import java.util.Map;
+import java.util.HashMap;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -18,6 +22,9 @@ public class FamilyMember {
     @Column(name = "member_type", nullable = false, length = 10) private MemberType memberType;
     @Column(name = "birth_date") private LocalDate birthDate;
     @Column(length = 7) private String color;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = false, columnDefinition = "jsonb")
+    private Map<String, Object> preferences = Map.of();
     @Column(name = "avatar_reference", length = 255) private String avatarReference;
     @Column(name = "linked_user_id") private UUID linkedUserId;
     @Column(nullable = false) private boolean active;
@@ -53,6 +60,26 @@ public class FamilyMember {
         }
     }
 
+    public void patchPreferences(Object patch, Instant now) {
+        if (!(patch instanceof Map<?, ?> values)) throw FamilyMemberException.invalid("preferences");
+        var merged = new HashMap<>(preferences);
+        for (var entry : values.entrySet()) {
+            if (!"completedTaskColor".equals(entry.getKey())) throw FamilyMemberException.invalid("preferences");
+            Object value = entry.getValue();
+            if (value == null) {
+                merged.remove("completedTaskColor");
+            } else if (value instanceof String color && color.matches("#[0-9a-fA-F]{6}")) {
+                merged.put("completedTaskColor", color.toUpperCase(Locale.ROOT));
+            } else {
+                throw FamilyMemberException.invalid("completed-task-color");
+            }
+        }
+        if (!preferences.equals(merged)) {
+            preferences = Map.copyOf(merged);
+            updatedAt = now;
+        }
+    }
+
     public void setActive(boolean active, Instant now) {
         if (this.active != active) {
             this.active = active;
@@ -81,6 +108,7 @@ public class FamilyMember {
     public String getName() { return name; }
     public MemberType getMemberType() { return memberType; }
     public LocalDate getBirthDate() { return birthDate; }
+    public Map<String, Object> getPreferences() { return Map.copyOf(preferences); }
     public String getColor() { return color; }
     public String getAvatarReference() { return avatarReference; }
     public UUID getLinkedUserId() { return linkedUserId; }

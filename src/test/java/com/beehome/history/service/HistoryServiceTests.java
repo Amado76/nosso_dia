@@ -29,7 +29,7 @@ class HistoryServiceTests {
 
     private void child() {
         when(members.get(user, family, child)).thenReturn(new FamilyMemberResponse(child, family, "Child",
-                MemberType.CHILD, null, null, null, false, true, Instant.EPOCH, Instant.EPOCH));
+                MemberType.CHILD, null, null, null, false, true, Instant.EPOCH, Instant.EPOCH, java.util.Map.of()));
     }
     @Test void rejectsPeriodBeyondInclusiveLimitBeforeLoadingSources() {
         child();
