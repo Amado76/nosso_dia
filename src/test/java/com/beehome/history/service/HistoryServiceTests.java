@@ -24,7 +24,8 @@ class HistoryServiceTests {
     private final DailyExecutionService executions = mock(DailyExecutionService.class);
     private final StudyService studies = mock(StudyService.class);
     private final PhotoRecordService photos = mock(PhotoRecordService.class);
-    private final HistoryService history = new HistoryService(members, executions, studies, photos, 366);
+    private final com.beehome.reading.service.ReadingService reading = mock(com.beehome.reading.service.ReadingService.class);
+    private final HistoryService history = new HistoryService(members, executions, studies, photos, reading, 366);
 
     private void child() {
         when(members.get(user, family, child)).thenReturn(new FamilyMemberResponse(child, family, "Child",
@@ -34,7 +35,7 @@ class HistoryServiceTests {
         child();
         assertThatThrownBy(() -> history.report(user, family, child, LocalDate.parse("2025-01-01"),
                 LocalDate.parse("2026-01-02"))).isInstanceOf(com.beehome.shared.exception.InputException.class);
-        verifyNoInteractions(executions, studies, photos);
+        verifyNoInteractions(executions, studies, photos, reading);
     }
     @Test void aggregatesOnlyCompletedStudyMinutesAndExcludesCancelledRoutineItems() {
         child(); LocalDate date = LocalDate.parse("2026-09-21");
@@ -48,6 +49,8 @@ class HistoryServiceTests {
                         List.of(new com.beehome.study.dto.StudySummary.Subject(subject, 90, 1))));
         when(photos.historyCounts(user, family, child, date, date))
                 .thenReturn(List.of(new PhotoRecordService.PhotoDay(date, 1, 1)));
+        when(reading.summary(user, family, child, date, date))
+                .thenReturn(new com.beehome.reading.dto.ReadingSummary(date, date, 0, 0, 0, 0, 0));
         var report = history.report(user, family, child, date, date);
         assertThat(report.routine().plannedItems()).isEqualTo(1);
         assertThat(report.routine().completedItems()).isEqualTo(1);

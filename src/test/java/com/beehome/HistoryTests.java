@@ -84,6 +84,17 @@ class HistoryTests {
         String family = base.substring(0, base.indexOf("/children"));
         String childId = base.substring(base.lastIndexOf('/') + 1);
         String member = family + "/members/" + childId;
+        String bookJson = mvc.perform(post(family + "/books").with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content("{\"title\":\"Together\"}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String bookId = com.jayway.jsonpath.JsonPath.read(bookJson, "$.id");
+        String journeyJson = mvc.perform(post(base + "/books").with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content("{\"bookId\":\"" + bookId + "\"}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String journeyId = com.jayway.jsonpath.JsonPath.read(journeyJson, "$.id");
+        mvc.perform(post(base + "/reading-sessions").with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content("{\"childBookId\":\"" + journeyId + "\",\"date\":\"2026-09-21\"}"))
+                .andExpect(status().isCreated());
         mvc.perform(post(member + "/daily-plan/2026-09-21/items").with(jwt().jwt(j -> j.subject(owner.toString())))
                 .contentType("application/json").content("{\"title\":\"Breakfast\",\"sortOrder\":0}"))
                 .andExpect(status().isCreated());
@@ -108,7 +119,8 @@ class HistoryTests {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.days.length()").value(2))
                 .andExpect(jsonPath("$.days[0].hasPhotos").value(true))
                 .andExpect(jsonPath("$.days[1].hasRoutine").value(true))
-                .andExpect(jsonPath("$.days[1].hasStudies").value(true));
+                .andExpect(jsonPath("$.days[1].hasStudies").value(true))
+                .andExpect(jsonPath("$.days[1].hasReading").value(true));
         mvc.perform(get(base + "/history?from=2026-09-20&to=2026-09-21&size=1")
                 .with(jwt().jwt(j -> j.subject(owner.toString()))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].date").value("2026-09-21"))
@@ -122,7 +134,8 @@ class HistoryTests {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.routine.days").value(1))
                 .andExpect(jsonPath("$.studies.sessions").value(1))
                 .andExpect(jsonPath("$.studies.totalMinutes").value(2.0))
-                .andExpect(jsonPath("$.photos.records").value(1));
+                .andExpect(jsonPath("$.photos.records").value(1))
+                .andExpect(jsonPath("$.reading.sessions").value(1));
         mvc.perform(get(base + "/reports?from=2026-09-21&to=2026-09-20")
                 .with(jwt().jwt(j -> j.subject(owner.toString()))))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));

@@ -59,9 +59,12 @@ and [Study Tracking PRD](docs/pdr-06-study-tracking-prd.md).
 PDR-07 provides private family media storage and child photo records. See the
 [photos and media integration guide](docs/photos-media.md) and
 [Photos and Media PRD](docs/pdr-07-photos-media-prd.md).
+PDR-08 provides family books, child reading journeys, sessions, derived progress,
+and period metrics. See the [books and reading integration guide](docs/books-reading.md)
+and [Books and Reading PRD](docs/pdr-08-books-reading-prd.md).
 PDR-09 provides a calendar, child history, and live period reports over
-existing routine, study, and photo records. Reading sections are reserved until
-reading records exist. See the [calendar, history, and reports integration guide](docs/calendar-history-reports.md)
+existing routine, study, reading, and photo records, including paginated reading
+detail and live reading totals. See the [calendar, history, and reports integration guide](docs/calendar-history-reports.md)
 and [Calendar, History, and Reports PRD](docs/pdr-09-calendar-history-reports-prd.md).
 Feature names and API examples below illustrate organization; they are not approved
 requirements and do not authorize implementing business features.

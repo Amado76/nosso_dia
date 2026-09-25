@@ -104,3 +104,27 @@ PDR-09 is complete when authorized clients can retrieve daily detail, a light
 calendar, paginated period history, and live structured reports; all results
 respect family timezone and ownership; source facts are not duplicated; and
 queries, documentation, OpenAPI, errors, and tests meet the rules above.
+
+
+## PRD-08 follow-up: connect the reading source
+
+PDR-08 now implements the source described in [Books and reading](books-reading.md).
+The follow-up is implemented in the [integration API](calendar-history-reports.md):
+
+- HistoryService calls ReadingService without reading repository access.
+- Daily detail exposes typed session entries with book ID/title and nullable
+  minutes/pages read, plus explicit readingPage/readingSize/readingHasNext.
+- Calendar merges distinct reading dates, including date-only sessions.
+- Period history includes reading-only dates and grouped daily session counts,
+  without per-day summary queries.
+- Reports use ReadingService.summary for sessions, totalMinutes, pagesRead,
+  books, and booksCompleted. The former distinctBooks placeholder is renamed books.
+- Reading summaries and grouped counts share REPORTS_MAX_PERIOD_DAYS (default
+  366). Calendar date queries allow at least 31 days so a lower report limit
+  does not prevent reading a full calendar month.
+- Integration coverage includes date-only sessions, edits/deletes, overlapping
+  pages, rereads, historical completions, pagination, configured periods,
+  family/child isolation, and bounded query counts.
+
+This follow-up adds no source storage or migrations; the reading module retains
+ownership of session and completion rules.

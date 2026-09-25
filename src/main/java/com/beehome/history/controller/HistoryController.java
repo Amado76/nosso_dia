@@ -26,10 +26,12 @@ public class HistoryController {
     private static UUID user(Jwt jwt) { return UUID.fromString(jwt.getSubject()); }
 
     @GetMapping("/history/{date}")
-    @Operation(summary = "Read one child's day without creating records")
+    @Operation(summary = "Read one child's day with paginated reading sessions, without creating records")
     public HistoryDetail detail(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID familyId, @PathVariable UUID childId,
-            @Parameter(schema = @Schema(type = "string", format = "date")) @PathVariable String date) {
-        return history.detail(user(jwt), familyId, childId, JsonFields.date(date));
+            @Parameter(schema = @Schema(type = "string", format = "date")) @PathVariable String date,
+            @Parameter(schema = @Schema(minimum = "0", defaultValue = "0")) @RequestParam(defaultValue = "0") int readingPage,
+            @Parameter(schema = @Schema(minimum = "1", maximum = "100", defaultValue = "20")) @RequestParam(defaultValue = "20") int readingSize) {
+        return history.detail(user(jwt), familyId, childId, JsonFields.date(date), readingPage, readingSize);
     }
     @GetMapping("/calendar")
     @Operation(summary = "List dates with activity and source flags")

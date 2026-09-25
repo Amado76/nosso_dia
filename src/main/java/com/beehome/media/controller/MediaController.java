@@ -52,7 +52,7 @@ public class MediaController {
     @DeleteMapping("/{mediaId}") @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary="Delete unattached media and its private content")
     @ApiResponse(responseCode="204",description="Media deleted")
-    @ApiResponse(responseCode="409",description="Media is used by a photo record")
+    @ApiResponse(responseCode="409",description="Media is used by a photo record or book cover")
     public void delete(@AuthenticationPrincipal Jwt jwt,@PathVariable UUID familyId,@PathVariable UUID mediaId) {
         service.delete(user(jwt),familyId,mediaId);
     }

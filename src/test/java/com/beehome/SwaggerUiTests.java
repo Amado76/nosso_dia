@@ -31,4 +31,32 @@ class SwaggerUiTests {
                 .andExpect(jsonPath("$.paths['/api/auth/logout'].post.security[0].bearerAuth").isArray())
                 .andExpect(jsonPath("$.paths['/api/auth/login'].post.security").doesNotExist());
     }
+
+    @Test void documentsReadingResourcesAndMetrics() throws Exception {
+        mvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.paths['/api/families/{familyId}/books'].post.responses['201']").exists())
+                .andExpect(jsonPath("$.paths['/api/families/{familyId}/children/{childId}/books/{childBookId}'].patch").exists())
+                .andExpect(jsonPath("$.paths['/api/families/{familyId}/children/{childId}/reading-sessions/{sessionId}'].put").exists())
+                .andExpect(jsonPath("$.paths['/api/families/{familyId}/children/{childId}/reading-summary'].get.security[0].bearerAuth").isArray())
+                .andExpect(jsonPath("$.components.schemas.ReadingSummary.properties.booksCompleted").exists());
+    }
+    @Test void documentsTypedHistoryReadingAndReportTotals() throws Exception {
+        mvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.components.schemas.HistoryDetail.properties.reading.items['$ref']")
+                        .value("#/components/schemas/HistoryReadingSession"))
+                .andExpect(jsonPath("$.components.schemas.HistoryReadingSession.properties.bookId").exists())
+                .andExpect(jsonPath("$.components.schemas.HistoryCalendar.properties.days.items['$ref']")
+                        .value("#/components/schemas/HistoryCalendarDay"))
+                .andExpect(jsonPath("$.components.schemas.HistoryPage.properties.items.items['$ref']")
+                        .value("#/components/schemas/HistoryPeriodDay"))
+                .andExpect(jsonPath("$.components.schemas.HistoryPeriodDay.properties.readingSessions").exists())
+                .andExpect(jsonPath("$.components.schemas.HistoryReadingSession.properties.bookTitle").exists())
+                .andExpect(jsonPath("$.components.schemas.HistoryDetail.properties.readingHasNext").exists())
+                .andExpect(jsonPath("$.components.schemas.HistoryReadingTotals.properties.books").exists())
+                .andExpect(jsonPath("$.components.schemas.HistoryReadingTotals.properties.totalMinutes").exists())
+                .andExpect(jsonPath("$.components.schemas.HistoryReadingTotals.properties.booksCompleted").exists())
+                .andExpect(jsonPath("$.paths['/api/families/{familyId}/children/{childId}/history/{date}'].get.parameters[?(@.name == 'readingSize')].schema.maximum")
+                        .value(org.hamcrest.Matchers.contains(100)));
+    }
+
 }

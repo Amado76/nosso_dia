@@ -74,12 +74,18 @@ public class MediaService {
         try { return new Content(storage.load(item.getStorageKey()), item.getMimeType()); }
         catch (IOException e) { log.warn("Media content unavailable for {}", id); throw MediaException.failed(); }
     }
+    /** Serialize new image references with deletion; callers hold the surrounding transaction. */
+    @Transactional
+    public boolean lockImage(UUID user, UUID family, UUID id) {
+        authorization.requireMembership(user,family);
+        return media.lock(family,id).filter(item -> "IMAGE".equals(item.getType())).isPresent();
+    }
     public record Content(Resource resource, String mimeType) {}
     @Transactional
     public void delete(UUID user, UUID family, UUID id) {
         authorization.requireMembership(user, family);
         var item=media.lock(family,id).orElseThrow(MediaException::notFound);
-        if (links.existsByMediaId(id)) throw MediaException.inUse();
+        if (links.existsByMediaId(id) || media.usedAsBookCover(id)) throw MediaException.inUse();
         try { storage.delete(item.getStorageKey()); }
         catch (IOException e) { log.warn("Media deletion failed for {}", id); throw MediaException.failed(); }
         media.delete(item);
