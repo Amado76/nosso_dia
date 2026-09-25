@@ -2,7 +2,6 @@ package com.beehome.dailyplan.dto;
 
 import com.fasterxml.jackson.annotation.*;
 import com.beehome.shared.dto.JsonFields;
-import com.beehome.shared.exception.InputException;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.*;
 import java.util.*;

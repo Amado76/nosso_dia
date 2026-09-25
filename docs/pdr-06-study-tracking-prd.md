@@ -1,11 +1,11 @@
-# BE-06 — Study Tracking
+# PDR-06 — Study Tracking
 
 Status: proposed.
 
 ## Outcome and boundaries
 
-BE-06 records what a family member actually studied, for how long, and with
-which subject and notes. BE-05 remains responsible for daily activity status
+PDR-06 records what a family member actually studied, for how long, and with
+which subject and notes. PDR-05 remains responsible for daily activity status
 and completion. A study session is an independent historical record: it may
 link to a daily execution item, but neither requires the other, and finishing a
 session never completes an activity automatically.

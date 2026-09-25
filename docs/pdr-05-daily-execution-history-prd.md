@@ -1,19 +1,19 @@
-# BE-05 — Daily Execution and History
+# PDR-05 — Daily Execution and History
 
-Status: implemented. This document records the BE-05 execution requirements.
+Status: implemented. This document records the PDR-05 execution requirements.
 See the [daily execution integration guide](daily-execution.md) for the implemented
 API contract, limits, and concurrency decisions; OpenAPI complements that guide.
 
 ## Outcome and boundary
 
-BE-04 answers what is planned for a member and date. BE-05 records what happened.
+PDR-04 answers what is planned for a member and date. PDR-05 records what happened.
 It materializes the existing `ResolvedDailyPlan` into an independent daily
 execution with snapshots, completion state, and history. Historical reads never
 rebuild data from current routines or plans.
 
 Keep the feature in `dailyexecution/` with responsibility subpackages as needed.
 Reuse `FamilyAuthorizationService` for membership and role checks. Consume the
-BE-04 resolved-plan boundary; do not query routine or daily-plan repositories
+PDR-04 resolved-plan boundary; do not query routine or daily-plan repositories
 directly or introduce a chain of feature services. Use UUIDs, Flyway, explicit
 DTOs, service transactions, injected `Clock`, and PostgreSQL constraints.
 
@@ -22,14 +22,14 @@ DTOs, service transactions, injected `Clock`, and PostgreSQL constraints.
 | Concern | Decision |
 | --- | --- |
 | Execution identity | At most one execution per family, member, and `LocalDate`; enforce with a unique constraint. Store family and member IDs and validate their relationship. |
-| Materialization | Create on demand from BE-04's resolved plan, including note and ordered items. Use `sourceType` (`ROUTINE`, `DAILY_PLAN`) plus `sourceId` for identity; enforce uniqueness per execution when source ID is present. Concurrent requests converge on one execution. |
+| Materialization | Create on demand from PDR-04's resolved plan, including note and ordered items. Use `sourceType` (`ROUTINE`, `DAILY_PLAN`) plus `sourceId` for identity; enforce uniqueness per execution when source ID is present. Concurrent requests converge on one execution. |
 | Snapshot | Copy title, nullable description, nullable `LocalTime`, and sort order. History uses snapshots only. Do not accept snapshot fields from clients. |
 | Item state | `PENDING`, `COMPLETED`, or `CANCELLED`. Completion records `Instant completedAt` and nullable authenticated `completedByUserId`; uncompletion clears both. Repeating either operation in the same state changes no timestamps. |
 | Open synchronization | Synchronize an `OPEN` execution against the current resolved plan: add new sources, update snapshots for pending sources, cancel removed pending sources, and reactivate a returned cancelled source. Never rewrite or cancel a completed item. |
 | Finalization | `FINALIZED` freezes snapshots and item state. Pending items are allowed. Finalization records `finalizedAt`; finalized executions do not synchronize and reject completion changes. |
 | Reopening | OWNER/ADMIN can reopen for correction. Reopening preserves all snapshots and does not synchronize with today's plan. Corrections use the normal item operations; finalization may be repeated. |
 | Dates and timezone | Use `LocalDate` for execution date, `LocalTime` for planned time, and `Instant` for events. Family timezone determines today and past-date rules. Normal execution is available only for today; future completion is rejected. Do not infer timezone from server/device. |
-| Inactive sources/members | Inactive routines/items are omitted by BE-04 and therefore stop contributing during open synchronization. Do not create executions for inactive members. Existing history remains readable. |
+| Inactive sources/members | Inactive routines/items are omitted by PDR-04 and therefore stop contributing during open synchronization. Do not create executions for inactive members. Existing history remains readable. |
 | Concurrency | Make materialization and state transitions transactional. Use optimistic locking on mutable execution state where needed; surface a safe conflict for reload. The database enforces uniqueness. |
 
 Reads remain side-effect free. Once an execution date is earlier than the
@@ -51,7 +51,7 @@ role returns `403 FORBIDDEN` after family access is established.
 
 | Method and route | Access | Behavior |
 | --- | --- | --- |
-| `PUT /api/families/{familyId}/members/{memberId}/executions/{date}` | Any member | Idempotently materialize or synchronize today's execution from BE-04 and return it. Past dates return existing history without synchronization; future dates are rejected. |
+| `PUT /api/families/{familyId}/members/{memberId}/executions/{date}` | Any member | Idempotently materialize or synchronize today's execution from PDR-04 and return it. Past dates return existing history without synchronization; future dates are rejected. |
 | `GET /api/families/{familyId}/members/{memberId}/executions/{date}` | Any member | Read an existing execution without mutation. Return 404 if it has not been materialized. |
 | `POST .../executions/{date}/items/{itemId}/complete` | Any member | Idempotently complete an item in today's open execution, or an explicitly reopened historical execution. |
 | `POST .../executions/{date}/items/{itemId}/uncomplete` | Any member | Idempotently return an item to pending under the same rules. |
@@ -100,12 +100,12 @@ Run `./mvnw verify` with Docker when implementation is complete.
 
 Child authentication, direct/manual execution items, complete audit log,
 scheduler, background jobs, offline conflict resolution, reports, streaks,
-points, rewards, notifications, uploads, and planning CRUD are not part of BE-05.
+points, rewards, notifications, uploads, and planning CRUD are not part of PDR-05.
 
 ## Acceptance
 
 1. A single execution per family/member/date is materialized idempotently from
-   the BE-04 resolved plan with note and item snapshots.
+   the PDR-04 resolved plan with note and item snapshots.
 2. Completion and uncompletion are authorized, idempotent, actor/timestamp aware,
    and constrained by family-local date and execution state.
 3. Open executions synchronize only as specified; completed facts and finalized

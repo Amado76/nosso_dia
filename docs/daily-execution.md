@@ -1,6 +1,6 @@
 # Daily execution and history — UI integration
 
-BE-05 records the resolved BE-04 plan as independent snapshots. All paths below
+PDR-05 records the resolved PDR-04 plan as independent snapshots. All paths below
 start with `/api/families/{familyId}/members/{memberId}/executions`.
 Family/member/item IDs are UUIDs. Dates must be valid `YYYY-MM-DD` strings.
 The family timezone determines today; never substitute the device timezone.
@@ -111,7 +111,7 @@ contract. It is null if that denominator is zero. Empty executions are valid.
 
 ## Synchronization and corrections
 
-1. Resolve planning using BE-04 when displaying the plan before execution.
+1. Resolve planning using PDR-04 when displaying the plan before execution.
 2. PUT today's execution when execution starts or when explicitly refreshing its
    planning snapshots. Repeating PUT preserves the execution identity.
 3. Use the returned execution item IDs for complete/uncomplete. GET only reads;
@@ -202,7 +202,7 @@ between attempts, re-evaluate the returned state. PUT may synchronize newer plan
 on retry. No offline merge or complete audit log is provided. There is no new feature
 rate limit. Existing authentication limits still apply.
 
-The resolved plan is bounded to 1000 items by BE-04. Execution accumulation is
+The resolved plan is bounded to 1000 items by PDR-04. Execution accumulation is
 bounded to 2000 snapshots, including cancelled/completed ones; reaching that cap
 rejects a synchronization that needs additional items and rolls back the whole
 operation. History uses bounded pages and one grouped summary query, avoiding item

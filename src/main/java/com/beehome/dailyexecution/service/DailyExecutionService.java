@@ -137,6 +137,30 @@ public class DailyExecutionService {
         }).toList(), page, size, slice.hasNext());
     }
 
+    @Transactional(readOnly = true)
+    public List<LocalDate> historyDates(UUID user, UUID family, UUID member, LocalDate from, LocalDate to) {
+        members.get(user, family, member);
+        return executions.dates(family, member, from, to);
+    }
+    @Transactional(readOnly = true)
+    public List<RoutineDay> historyCounts(UUID user, UUID family, UUID member, LocalDate from, LocalDate to) {
+        members.get(user, family, member);
+        return executions.dayCounts(family, member, from, to).stream().map(row ->
+                new RoutineDay(row.getDate(), row.getTotal() - row.getCancelled(), row.getCompleted())).toList();
+    }
+    public record RoutineDay(LocalDate date, long plannedItems, long completedItems) {}
+
+    @Transactional(readOnly = true)
+    public List<ExecutionResponse> historyRange(UUID user, UUID family, UUID member, LocalDate from, LocalDate to) {
+        var profile = members.get(user, family, member);
+        var today = today(user, family);
+        var rows = executions.range(family, member, from, to);
+        if (rows.isEmpty()) return List.of();
+        var grouped = items.findForExecutions(rows.stream().map(DailyExecution::getId).toList()).stream()
+                .collect(java.util.stream.Collectors.groupingBy(DailyExecutionItem::getExecutionId));
+        return rows.stream().map(row -> response(row, profile, today, grouped.getOrDefault(row.getId(), List.of()))).toList();
+    }
+
     private DailyExecution locked(UUID family, UUID member, LocalDate date) {
         return executions.lock(family, member, date).orElseThrow(DailyExecutionException::missing);
     }

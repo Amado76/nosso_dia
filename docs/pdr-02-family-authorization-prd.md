@@ -1,6 +1,6 @@
-# BE-02 — Family & Authorization
+# PDR-02 — Family & Authorization
 
-Status: implemented baseline following the request to implement BE-02.
+Status: implemented baseline following the request to implement PDR-02.
 The policies below were adopted for this increment, with DELETE deferred.
 See [Family integration](families.md) for the implemented HTTP contract.
 Creation quotas remain a rollout decision; no quota is enforced in this increment.
@@ -11,7 +11,7 @@ Authentication identifies a BeeHome user. It does not establish which family's
 data that user can access. Before introducing family members and routines, the
 backend needs a family boundary enforced on every private operation.
 
-BE-02 lets an authenticated user create a family, become its OWNER automatically,
+PDR-02 lets an authenticated user create a family, become its OWNER automatically,
 list their families, and access family details according to their membership.
 Success means that a valid login never grants access to another family's data.
 
@@ -33,7 +33,7 @@ operations. The specific policies below define the implemented baseline.
 | Deletion | Defer DELETE until retention and dependent-data rules are defined | Avoids silently choosing irreversible deletion or archival semantics |
 | Family name | Strip surrounding whitespace; require 1–120 characters after normalization; names need not be unique | Supports readable labels without treating a name as identity |
 | Concurrent renames | Last committed write wins | Small initial scope; clients must not assume conflict detection |
-| Joining and role management | Separate follow-up scope | BE-02 creates only the creator's OWNER membership through public APIs |
+| Joining and role management | Separate follow-up scope | PDR-02 creates only the creator's OWNER membership through public APIs |
 
 Creation quotas and abuse controls still need a decision before public rollout;
 the existing authentication POST limiter does not establish a family API limit.
@@ -59,14 +59,14 @@ User ──< FamilyMembership >── Family
               │
               └── role: OWNER | ADMIN | MEMBER
 
-Future BE-03:
+Future PDR-03:
 Family ──< FamilyMember ── optional linkedUserId ──> User
 ```
 
 `User` is a login identity. `FamilyMembership` grants that identity access to one
 family. `FamilyMember` will represent a person in that family, including a child
 without a login. A future `linkedUserId` is a profile association and must not,
-by itself, grant permissions. BE-02 does not create a person profile implicitly.
+by itself, grant permissions. PDR-02 does not create a person profile implicitly.
 
 | Entity | Minimum selected fields |
 | --- | --- |
@@ -211,7 +211,7 @@ checks and writes so revoked privileges cannot be reused for a new operation.
 After login, load the family list. Show family creation when it is empty; otherwise
 let the user select a family. Retain a selected ID only as client navigation state,
 and revalidate it through the API. Clear cached family data when switching accounts
-or logging out. BE-02 does not add an active-family field to the user or JWT.
+or logging out. PDR-02 does not add an active-family field to the user or JWT.
 
 ## Acceptance criteria and delivery
 
@@ -246,13 +246,13 @@ behavior and matching OpenAPI. Keep this PRD's decisions and delivery status cur
 
 ## Next increments
 
-- BE-03 — Family Members / Children: model people independently of login identities.
+- PDR-03 — Family Members / Children: model people independently of login identities.
   Decide person fields, privacy, relationships, and optional user linking there.
   Login invitations and membership administration need explicit scope of their own.
-- BE-04 — Daily Routine / Tasks: define daily plans, scheduled versus unscheduled
+- PDR-04 — Daily Routine / Tasks: define daily plans, scheduled versus unscheduled
   items, completion, timezone/day boundaries, and child color behavior before coding.
 - Flutter vertical slice: login → family → children → today's routine → complete
   task, including empty/loading/error states and unauthorized access handling.
 
 Homeschool, books, photos, and reports can build on this boundary after the first
-usable flow. Their storage, data model, and permissions are outside BE-02.
+usable flow. Their storage, data model, and permissions are outside PDR-02.

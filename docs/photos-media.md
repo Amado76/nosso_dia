@@ -1,6 +1,6 @@
 # Photos and media API
 
-BE-07 stores private family images and dated photo records for children. The API base is `/api`. Send `Authorization: Bearer <access-token>` on every request; the current caller must be a member of `{familyId}`. A missing family membership, a family resource belonging elsewhere, or an inaccessible child returns a safe 404. All current family roles can use these routes. No public file URLs, image transforms, or automatic cleanup are available.
+PDR-07 stores private family images and dated photo records for children. The API base is `/api`. Send `Authorization: Bearer <access-token>` on every request; the current caller must be a member of `{familyId}`. A missing family membership, a family resource belonging elsewhere, or an inaccessible child returns a safe 404. All current family roles can use these routes. No public file URLs, image transforms, or automatic cleanup are available.
 
 Set `MEDIA_STORAGE_DIRECTORY` to a private directory outside the repository and web root. `MEDIA_MAX_BYTES` defaults to 10485760 (10 MiB); `MEDIA_MAX_REQUEST_BYTES` defaults to 11534336 to allow multipart overhead. The server creates the directory as needed. Upload bytes are stored there; PostgreSQL holds metadata and associations. Back up both together. The default directory is `${user.home}/.beehome/media`.
 

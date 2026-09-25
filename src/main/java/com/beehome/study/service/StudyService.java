@@ -179,6 +179,23 @@ public class StudyService {
                 .sorted(Comparator.comparing(s -> s.subjectId().toString())).toList();
         return new StudySummary(from, to, total, bySubject);
     }
+    @Transactional(readOnly = true)
+    public List<LocalDate> historyDates(UUID user, UUID family, UUID member, LocalDate from, LocalDate to) {
+        members.get(user, family, member);
+        return sessions.dates(family, member, from, to);
+    }
+    @Transactional(readOnly = true)
+    public List<StudyDay> historyCounts(UUID user, UUID family, UUID member, LocalDate from, LocalDate to) {
+        members.get(user, family, member);
+        return sessions.dayCounts(family, member, from, to).stream().map(row ->
+                new StudyDay(row.getDate(), row.getSessions(), row.getCompletedSessions(), row.getSeconds())).toList();
+    }
+    public record StudyDay(LocalDate date, long sessions, long completedSessions, long durationSeconds) {}
+    @Transactional(readOnly = true)
+    public List<StudySessionResponse> historyRange(UUID user, UUID family, UUID member, LocalDate from, LocalDate to) {
+        members.get(user, family, member);
+        return sessions.range(family, member, from, to).stream().map(StudySessionResponse::from).toList();
+    }
     private static void validateRange(LocalDate from, LocalDate to) {
         if (from == null || to == null || from.isAfter(to)) throw new InputException();
     }

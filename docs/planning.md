@@ -1,7 +1,7 @@
-# Routines and daily planning — BE-04
+# Routines and daily planning — PDR-04
 
 This is the implemented UI integration contract for the
-[BE-04 scope](be-04-routines-daily-planning-prd.md). Startup and backend origin
+[PDR-04 scope](pdr-04-routines-daily-planning-prd.md). Startup and backend origin
 follow the [README](../README.md); authentication follows
 [Authentication](authentication.md). Planning has no completion state, execution,
 snapshots, history, reminders, or automatic creation of future plans.

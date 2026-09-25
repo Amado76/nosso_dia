@@ -1,6 +1,6 @@
 # Study tracking — UI integration
 
-BE-06 records study subjects and study sessions independently of daily execution.
+PDR-06 records study subjects and study sessions independently of daily execution.
 All routes require `Authorization: Bearer <accessToken>` and accept optional
 `Accept-Language: en|pt|es` (regional variants work). JSON bodies use
 `Content-Type: application/json`. Errors use `application/problem+json` with a

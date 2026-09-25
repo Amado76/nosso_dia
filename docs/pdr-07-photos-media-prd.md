@@ -1,10 +1,10 @@
-# BE-07 — Photos and Media
+# PDR-07 — Photos and Media
 
 Status: proposed.
 
 ## Outcome and boundaries
 
-BE-07 adds private image storage and child photo records. `Media` represents a
+PDR-07 adds private image storage and child photo records. `Media` represents a
 stored file independently from the feature that uses it. The initial supported
 type is `IMAGE`; video, audio, documents, image editing, advanced thumbnails,
 public sharing, comments, likes, reports, and social integrations are out of
@@ -14,7 +14,7 @@ server-generated storage key.
 Photo records are dated entries for one child, with an optional description and
 an ordered, bounded collection of images. Uploading creates a media asset; it
 does not create a photo record. A later feature may use the same media storage
-boundary through its own association model. Keep BE-07 in `media/` and
+boundary through its own association model. Keep PDR-07 in `media/` and
 `photorecord/` feature packages using responsibility-based subpackages. Use
 UUIDs, explicit DTOs, Flyway, service transactions, existing family
 authorization, ProblemDetail/localization, and PostgreSQL constraints.
@@ -51,7 +51,7 @@ listing, content reads, and deletion. A media ID alone grants no access.
 Unknown and cross-family resources follow the established safe not-found
 behavior. No public or permanent direct file URLs are returned.
 
-An orphan is an active media row with no active association. For BE-07, this
+An orphan is an active media row with no active association. For PDR-07, this
 means no `photo_record_media` row; future consumers must include their active
 association tables in the same reference check. The family media listing can
 filter to unattached assets, making orphaned uploads discoverable. No cleanup
@@ -202,4 +202,4 @@ Acceptance requires that:
 
 Implement with behavior-first tests and run `./mvnw verify` when the feature is
 implemented. No scheduler, public URL, signed URL, video/audio support, or
-advanced image processing is part of BE-07.
+advanced image processing is part of PDR-07.

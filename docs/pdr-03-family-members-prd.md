@@ -1,6 +1,6 @@
-# BE-03 — Family Members
+# PDR-03 — Family Members
 
-Status: implemented. This document records the BE-03 scope and decisions.
+Status: implemented. This document records the PDR-03 scope and decisions.
 See the [family members integration guide](family-members.md) for the implemented
 UI–API contract.
 
@@ -10,32 +10,32 @@ A `FamilyMember` represents a person within exactly one `Family`. `User` is a lo
 identity; `FamilyMembership` grants that user access to a family. An optional
 `FamilyMember.linkedUserId` associates a person with an existing account but never
 grants access. A child can have no account. Names can repeat within and across
-families; UUIDs identify members. BE-03 supplies stable person IDs, classification,
+families; UUIDs identify members. PDR-03 supplies stable person IDs, classification,
 birth dates, colors, and active state for future routines and historical records.
 It introduces no routine, invitation, membership-management, or upload flow.
 
-The existing BE-02 implementation keeps family authorization in `FamilyService`;
+The existing PDR-02 implementation keeps family authorization in `FamilyService`;
 there is currently no `FamilyAuthorizationService`. Extract a focused collaborator
 in the `family` feature for persisted membership/role checks and have both family
-and family-member services use it. Preserve BE-02 behavior and avoid direct
+and family-member services use it. Preserve PDR-02 behavior and avoid direct
 `FamilyMembershipRepository` access from `familymember`. This is a focused reuse
 of existing rules, not a generic permission framework.
 
 ## Decisions required for this increment
 
-| Topic | BE-03 decision |
+| Topic | PDR-03 decision |
 | --- | --- |
 | Member types | Explicit `ADULT` or `CHILD`; birth date never changes type automatically |
 | Creation and edits | OWNER/ADMIN; MEMBER can read and self-link |
 | Deletion | No physical DELETE endpoint; use reversible deactivation |
 | Other-account links | Domain and database support them; no public user-ID linking endpoint until membership management exists |
-| Avatar | Reserve nullable `avatarReference` in persistence and responses. It is read-only and remains null in BE-03; the media feature will define and validate a server-owned reference before writes are enabled |
+| Avatar | Reserve nullable `avatarReference` in persistence and responses. It is read-only and remains null in PDR-03; the media feature will define and validate a server-owned reference before writes are enabled |
 | List | Active by default; optional inactive inclusion and type filter; ordered `createdAt ASC, id ASC`, bounded offset pagination |
 | Concurrent profile edits | Last committed update wins; no ETag or version in this increment |
 
 The avatar decision intentionally narrows the original proposed PATCH field. A
 client-provided string would have no real media object or ownership check today and
-could become an unsafe URL/path contract. BE-03 prepares the schema and DTO; actual
+could become an unsafe URL/path contract. PDR-03 prepares the schema and DTO; actual
 avatar association is an acceptance criterion for the later media feature, not a
 claim of functionality here.
 
@@ -56,7 +56,7 @@ Add the next versioned Flyway migration after V5 in `beehome`:
 | `member_type` | VARCHAR(10) | Required, check `ADULT`/`CHILD` |
 | `birth_date` | DATE | Nullable |
 | `color` | VARCHAR(7) | Nullable, canonical uppercase `#RRGGBB`; database format check |
-| `avatar_reference` | VARCHAR(255) | Nullable; no BE-03 write path |
+| `avatar_reference` | VARCHAR(255) | Nullable; no PDR-03 write path |
 | `linked_user_id` | UUID | Nullable; composite FK with `family_id` to the user's FamilyMembership |
 | `active` | BOOLEAN | Required, default true |
 | `created_at`, `updated_at` | TIMESTAMP WITH TIME ZONE | Required UTC instants |
@@ -218,7 +218,7 @@ Use the shared `ProblemDetail` contract. Add only these domain codes:
 Reuse `FAMILY_NOT_FOUND`, `FORBIDDEN`, `VALIDATION_ERROR`, and
 `UNAUTHENTICATED`. Structural validation returns 400; framework errors for
 malformed JSON, unknown fields, invalid UUIDs, and invalid enum/filter values may
-omit an application code, as in BE-02. Do not create a distinct code for every
+omit an application code, as in PDR-02. Do not create a distinct code for every
 field error. Add English, Portuguese, and Spanish message keys for all new
 user-facing domain and validation messages; keep stable codes untranslated.
 
@@ -229,7 +229,7 @@ offering another creation. PATCH can overwrite another editor's later change und
 last-write-wins; reload before retrying an uncertain edit. On 401, follow the
 existing bounded token renewal flow. On 403/404, reselect an accessible family or
 stop offering that operation. No new configuration variables or rate limiter are
-part of BE-03.
+part of PDR-03.
 
 ## Delivery and verification
 
@@ -268,7 +268,7 @@ Acceptance scenarios:
    `pt-BR`, `es-PY`, unsupported language, and no language header.
 9. OpenAPI describes all routes, roles, request/response schemas, filters, and
    errors. The integration guide documents actual behavior. The migration
-   validates against existing BE-02 data and `./mvnw verify` passes.
+   validates against existing PDR-02 data and `./mvnw verify` passes.
 
 Out of scope: invitations, membership management, linking another account by
 public API, child login, parental controls, routine/tasks, school or medical data,

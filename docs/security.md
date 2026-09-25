@@ -5,14 +5,14 @@ uploads, and downloads. Follow [AGENTS.md](../AGENTS.md).
 
 ## Current authentication boundary
 
-BE-01 uses stateless Bearer JWT authentication with email/password registration,
+PDR-01 uses stateless Bearer JWT authentication with email/password registration,
 rotating refresh sessions, SMTP password recovery, and authenticated password changes. Public routes are explicitly
 listed in the security configuration; all others require authentication.
 HTTP Basic and generated development users are disabled. Swagger is public only
 when explicitly enabled for development. See [Authentication](authentication.md)
 for configuration, token lifecycle, notification boundaries, and deployment limits.
 Google/Apple identity mapping is prepared, but OAuth login/linking routes are not
-enabled. BE-02 enforces persisted family memberships for family reads and renames;
+enabled. PDR-02 enforces persisted family memberships for family reads and renames;
 see [Family authorization](families.md).
 
 Do not disable CSRF or broadly allow CORS simply to make a client call pass.

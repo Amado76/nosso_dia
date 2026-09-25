@@ -1,4 +1,4 @@
-# BE-04 — Routines and Daily Planning
+# PDR-04 — Routines and Daily Planning
 
 Status: proposed implementation scope. This document turns the product request
 into implementation decisions consistent with the current backend. It is not an
@@ -7,10 +7,10 @@ guide and matching OpenAPI documentation.
 
 ## Outcome and boundaries
 
-BE-04 lets OWNER and ADMIN configure recurring routines and date-specific plans
+PDR-04 lets OWNER and ADMIN configure recurring routines and date-specific plans
 for any FamilyMember; every family member can read the resolved plan for a date.
 A resolved plan combines current active routine configuration with optional daily
-plan data. It does not record completion. BE-05 owns execution, snapshots, and
+plan data. It does not record completion. PDR-05 owns execution, snapshots, and
 history.
 
 Add routine and dailyplan feature packages with responsibility subpackages only
@@ -35,7 +35,7 @@ generic recurrence, execution/history tables, jobs, caching, or service chains.
 | Concurrent edits | Last committed write wins for edits. Do not add ETags/versions. Daily-plan uniqueness is database-enforced; creation races converge on the winning row. |
 | Family timezone | Persist IANA ZoneId on Family. Existing families are backfilled to UTC, never inferred from account/device/IP. New family creation requires timezone; family PATCH may update it. |
 | Date/time | Use LocalDate and LocalTime. Times are family-local wall times, not UTC. Supplied date is not shifted by timezone. No “today” default. |
-| Audit | createdAt/updatedAt remain UTC Instants from injected Clock. Update only when persisted state changes, following BE-03. |
+| Audit | createdAt/updatedAt remain UTC Instants from injected Clock. Update only when persisted state changes, following PDR-03. |
 
 UTC is a deterministic neutral migration value, not a location claim. The UI
 should ask the user to select the intended zone. Changing a family timezone
@@ -68,8 +68,8 @@ the inclusive date range, and on a selected weekday. Only active items assigned
 to the requested member contribute.
 
 Create DailyPlan on demand. Dates are calendar dates, not instants. Planning edits
-and deactivation do not mutate or imply past execution. BE-05 must snapshot the
-resolved content it needs when execution begins. BE-04 creates no execution
+and deactivation do not mutate or imply past execution. PDR-05 must snapshot the
+resolved content it needs when execution begins. PDR-04 creates no execution
 records.
 
 ## Family timezone change
@@ -141,7 +141,7 @@ default-to-today behavior.
 - Daily item create requires title and sortOrder; description/time are nullable.
   Family/member/date come from path, never body.
 - PATCH distinguishes omitted from explicit null using the presence-aware pattern
-  established in BE-03. Reject null for required fields and empty patches.
+  established in PDR-03. Reject null for required fields and empty patches.
 - Responses are explicit DTOs. Routine detail includes items; list rows do not.
   Daily response includes date, timezone, safe member summary, nullable note, and
   items.
@@ -218,5 +218,5 @@ technical timestamps. Test ZoneId validation and UTC backfill. No business
 Completion, execution actor/timestamps, snapshots/history tables, streaks,
 rewards, reports, notifications/reminders, child login/session, RRULE, holidays,
 calendar UI, uploads, AI plans, and pre-created future daily plans are excluded.
-BE-05 must define snapshot and execution semantics; BE-04 provides stable source
+PDR-05 must define snapshot and execution semantics; PDR-04 provides stable source
 IDs and planning data only.

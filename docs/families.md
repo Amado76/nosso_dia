@@ -1,8 +1,8 @@
-# Family integration — BE-02 and BE-04
+# Family integration — PDR-02 and PDR-04
 
-This is the implemented family API contract. The [PRD](be-02-family-authorization-prd.md)
+This is the implemented family API contract. The [PRD](pdr-02-family-authorization-prd.md)
 records the scope and selected policies. Authentication follows
-[BE-01](authentication.md); base URLs and local startup follow the [README](../README.md).
+[PDR-01](authentication.md); base URLs and local startup follow the [README](../README.md).
 Routes are relative to the configured backend origin, with no additional prefix.
 
 ## Access and scope
@@ -146,7 +146,7 @@ committed write wins. All four endpoints return bodies; none returns 204.
 
 ## Family timezone
 
-BE-04 requires a valid IANA zone accepted by Java `ZoneId.of` and present in the
+PDR-04 requires a valid IANA zone accepted by Java `ZoneId.of` and present in the
 runtime timezone database, such as `America/Asuncion`, `Europe/Lisbon`, or `UTC`.
 Offset-only values (`+03:00`, `UTC+03:00`), unknown zones, null, and blank are
 invalid. Zone identifiers are case-sensitive and are not trimmed or inferred.
@@ -166,7 +166,7 @@ times are never rewritten. See [planning](planning.md).
 | --- | --- | --- |
 | 400 | `VALIDATION_ERROR`: name/timezone constraints, empty PATCH, or page/size bounds | Correct the input; show safe field feedback when available |
 | 400 | Invalid JSON, wrong value type, unknown body field, invalid UUID, malformed query syntax, missing body | Fix the request; framework responses may omit an application code |
-| 401 | `UNAUTHENTICATED`: missing/invalid/expired access token or unavailable current user | Follow BE-01 renewal/login flow |
+| 401 | `UNAUTHENTICATED`: missing/invalid/expired access token or unavailable current user | Follow PDR-01 renewal/login flow |
 | 403 | `FORBIDDEN`: MEMBER attempting to edit its family | Show insufficient permissions; refreshing does not grant access |
 | 404 | `FAMILY_NOT_FOUND`: missing family or no membership | Clear unavailable selection and reload accessible families |
 | 405 | Unsupported method on a mapped route, including DELETE | Do not offer unimplemented operations |
@@ -213,7 +213,7 @@ present for every 400 response.
 
 ## UI flow, retries, and limitations
 
-1. Authenticate through BE-01 and load the family list using the access token.
+1. Authenticate through PDR-01 and load the family list using the access token.
 2. If empty, offer family creation with a timezone selector. Otherwise show a selector; users may have
    multiple families. After creation, select the returned family ID.
 3. Load details when selecting a family. Use `myRole` to present name/timezone controls,
@@ -227,7 +227,7 @@ GET can be retried. There are no idempotency keys: a POST retry after a timeout
 may create a duplicate family. Reload and let the user reconcile before creating
 again; duplicate names mean a matching name alone is not proof of the outcome.
 PATCH assigns name and/or timezone but retrying can overwrite another writer's change; reload
-and confirm the intended edit first. Follow BE-01's bounded refresh behavior for
+and confirm the intended edit first. Follow PDR-01's bounded refresh behavior for
 401 and do not automatically repeat ambiguous mutations or refresh on 403/404.
 
 No additional dependencies, configuration variables, family count quotas, or

@@ -1,6 +1,6 @@
 # Family Members — UI–API Integration
 
-BE-03 represents people in a family. A person (FamilyMember) differs from a login
+PDR-03 represents people in a family. A person (FamilyMember) differs from a login
 account (User) and an access grant (FamilyMembership). An account link never
 grants access. A child can exist without an account. Each person belongs to
 exactly one family; names may repeat and UUIDs identify people.
@@ -13,7 +13,7 @@ feature-specific rate limits are required. Follow [authentication](authenticatio
 for login and bounded token refresh, and [families](families.md) to select an
 accessible family. Authentication and existing family memberships are prerequisites.
 
-Avatar references are read-only and always null in BE-03. Upload/download and
+Avatar references are read-only and always null in PDR-03. Upload/download and
 avatar association await the media feature. Invitations, membership management,
 public other-account linking, child login, parental controls, routines, family
 relationships, physical deletion, reports, and audit history are not implemented.
@@ -157,7 +157,7 @@ Errors use the shared [ProblemDetail contract](api.md#errors), with these domain
 The API also uses `FAMILY_NOT_FOUND`, `FORBIDDEN`, `VALIDATION_ERROR`, and
 `UNAUTHENTICATED`. Structural validation returns 400; framework errors for
 malformed JSON, unknown fields, invalid UUIDs, and invalid enum/filter values may
-omit an application code, as in BE-02. English, Portuguese, and Spanish translations cover domain and validation
+omit an application code, as in PDR-02. English, Portuguese, and Spanish translations cover domain and validation
 messages; stable codes remain untranslated.
 
 GET and idempotent state/link operations can be retried after checking current
@@ -167,7 +167,7 @@ offering another creation. PATCH can overwrite another editor's later change und
 last-write-wins; reload before retrying an uncertain edit. On 401, follow the
 existing bounded token renewal flow. On 403/404, reselect an accessible family or
 stop offering that operation. No new configuration variables or rate limiter are
-part of BE-03.
+part of PDR-03.
 
 
 Jakarta request validation includes an errors array of objects with field and
@@ -195,7 +195,7 @@ sends mail, or sends invitations.
 
 ## Persistence and deployment
 
-V6 adds a table and indexes without modifying BE-02 data. UUID references preserve
+V6 adds a table and indexes without modifying PDR-02 data. UUID references preserve
 feature boundaries. Birth dates use calendar dates; audit times use UTC instants.
 Age is not stored, and birth date never changes the explicit member type.
 
@@ -208,7 +208,7 @@ Profile updates use last committed update wins, without ETags or version fields.
 All writes lock the person row so profile/state edits cannot overwrite concurrent
 links. Omitted PATCH fields remain unchanged.
 
-Deploy with normal Flyway migration enabled. A rollback to BE-02 can leave the
+Deploy with normal Flyway migration enabled. A rollback to PDR-02 can leave the
 additive V6 table in place; preserve its data. Do not edit applied migration files;
 any schema correction needs a new versioned migration.
 

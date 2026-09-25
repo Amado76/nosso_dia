@@ -40,25 +40,29 @@ Google/Apple external identity mapping foundation. It also includes database
 migrations, OpenAPI, centralized API errors, English/Portuguese/Spanish localization,
 and automated tests. See [authentication](docs/authentication.md) and the
 [API error and localization contract](docs/api.md#errors).
-BE-02 provides family creation, membership-scoped listing and details, and
+PDR-02 provides family creation, membership-scoped listing and details, and
 OWNER/ADMIN renaming. See the [family integration guide](docs/families.md) and
-[BE-02 PRD](docs/be-02-family-authorization-prd.md). Family deletion, invitations,
+[PDR-02 PRD](docs/pdr-02-family-authorization-prd.md). Family deletion, invitations,
 membership administration, and the remaining product domain are not implemented.
-BE-03 provides family people profiles, active-state management, and self-account
+PDR-03 provides family people profiles, active-state management, and self-account
 links. See the [family members integration guide](docs/family-members.md) and
-[BE-03 PRD](docs/be-03-family-members-prd.md). Avatar writes await the media feature.
-BE-04 provides recurring routines, date-specific notes/items, resolved daily plans,
+[PDR-03 PRD](docs/pdr-03-family-members-prd.md). Avatar writes await the media feature.
+PDR-04 provides recurring routines, date-specific notes/items, resolved daily plans,
 and family timezones. See the [planning integration guide](docs/planning.md) and
-[Routines and Daily Planning PRD](docs/be-04-routines-daily-planning-prd.md).
-BE-05 provides daily execution snapshots, completion, finalization, corrections,
+[Routines and Daily Planning PRD](docs/pdr-04-routines-daily-planning-prd.md).
+PDR-05 provides daily execution snapshots, completion, finalization, corrections,
 and paginated history. See the [execution integration guide](docs/daily-execution.md) and
-[Daily Execution and History PRD](docs/be-05-daily-execution-history-prd.md).
-BE-06 provides family-wide study subjects, timer/manual study sessions, and
+[Daily Execution and History PRD](docs/pdr-05-daily-execution-history-prd.md).
+PDR-06 provides family-wide study subjects, timer/manual study sessions, and
 history and summary queries. See the [study tracking integration guide](docs/study-tracking.md)
-and [Study Tracking PRD](docs/be-06-study-tracking-prd.md).
-BE-07 provides private family media storage and child photo records. See the
+and [Study Tracking PRD](docs/pdr-06-study-tracking-prd.md).
+PDR-07 provides private family media storage and child photo records. See the
 [photos and media integration guide](docs/photos-media.md) and
-[Photos and Media PRD](docs/be-07-photos-media-prd.md).
+[Photos and Media PRD](docs/pdr-07-photos-media-prd.md).
+PDR-09 provides a calendar, child history, and live period reports over
+existing routine, study, and photo records. Reading sections are reserved until
+reading records exist. See the [calendar, history, and reports integration guide](docs/calendar-history-reports.md)
+and [Calendar, History, and Reports PRD](docs/pdr-09-calendar-history-reports-prd.md).
 Feature names and API examples below illustrate organization; they are not approved
 requirements and do not authorize implementing business features.
 

@@ -71,6 +71,27 @@ public class PhotoRecordService {
         return new PhotoRecordPage(slice.getContent().stream()
                 .map(record -> response(record,grouped.getOrDefault(record.getId(),List.of()))).toList(),page,size,slice.hasNext());
     }
+    @Transactional(readOnly=true)
+    public List<LocalDate> historyDates(UUID user, UUID family, UUID child, LocalDate from, LocalDate to) {
+        child(user,family,child,false);
+        return records.dates(family,child,from,to);
+    }
+    @Transactional(readOnly=true)
+    public List<PhotoDay> historyCounts(UUID user, UUID family, UUID child, LocalDate from, LocalDate to) {
+        child(user,family,child,false);
+        return records.dayCounts(family,child,from,to).stream().map(row ->
+                new PhotoDay(row.getDate(),row.getRecords(),row.getImages())).toList();
+    }
+    public record PhotoDay(LocalDate date,long records,long images) {}
+    @Transactional(readOnly=true)
+    public List<PhotoRecordResponse> historyRange(UUID user, UUID family, UUID child, LocalDate from, LocalDate to) {
+        child(user,family,child,false);
+        var rows=records.range(family,child,from,to);
+        if (rows.isEmpty()) return List.of();
+        var grouped=links.findForRecords(rows.stream().map(PhotoRecord::getId).toList()).stream()
+                .collect(Collectors.groupingBy(PhotoRecordMedia::getPhotoRecordId));
+        return rows.stream().map(record -> response(record,grouped.getOrDefault(record.getId(),List.of()))).toList();
+    }
     @Transactional
     public PhotoRecordResponse replace(UUID user, UUID family, UUID child, UUID id, PhotoRecordRequest body) {
         child(user,family,child,true); if (body==null) throw new InputException();

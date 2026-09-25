@@ -1,6 +1,6 @@
-# Authentication and User Foundation (BE-01)
+# Authentication and User Foundation (PDR-01)
 
-BE-01 establishes an internal UUID user identity. Family roles, membership,
+PDR-01 establishes an internal UUID user identity. Family roles, membership,
 ownership rules, and generic permissions are outside this implementation.
 Authentication is enforced by default for future routes.
 
