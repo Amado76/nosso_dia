@@ -22,7 +22,7 @@ class BeeHomeApplicationTests {
         mvc.perform(get("/api/health")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("UP"));
     }
     @Test void appliesMigrationsToPostgres() {
-        assertEquals(15, jdbc.queryForObject("SELECT count(*) FROM public.flyway_schema_history WHERE success", Integer.class));
+        assertEquals(16, jdbc.queryForObject("SELECT count(*) FROM public.flyway_schema_history WHERE success", Integer.class));
         assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM information_schema.schemata WHERE schema_name = 'beehome'", Integer.class));
         assertEquals(2, jdbc.queryForObject("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'beehome' AND table_name IN ('daily_executions', 'daily_execution_items')", Integer.class));
         assertEquals(2, jdbc.queryForObject("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'beehome' AND table_name IN ('study_subjects', 'study_sessions')", Integer.class));

@@ -59,6 +59,8 @@ and [Study Tracking PRD](docs/pdr-06-study-tracking-prd.md).
 PDR-07 provides private family media storage and child photo records. See the
 [photos and media integration guide](docs/photos-media.md) and
 [Photos and Media PRD](docs/pdr-07-photos-media-prd.md).
+The proposed [photo record metadata and tags evolution](docs/pdr-07-photo-record-metadata-tags-evolution-prd.md)
+extends PDR-07 using the [global family tags model](docs/pdr-11-global-tags-prd.md).
 PDR-08 provides family books, child reading journeys, sessions, derived progress,
 and period metrics. See the [books and reading integration guide](docs/books-reading.md)
 and [Books and Reading PRD](docs/pdr-08-books-reading-prd.md).

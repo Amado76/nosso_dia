@@ -1,14 +1,15 @@
 package com.beehome.photorecord.dto;
 
 import com.beehome.photorecord.entity.PhotoRecord;
+import com.beehome.tag.dto.TagSummary;
 import java.time.*;
 import java.util.*;
 
 public record PhotoRecordResponse(UUID id, UUID childId, LocalDate date, String description,
-        List<MediaEntry> media, Instant createdAt, Instant updatedAt) {
+        List<TagSummary> tags, List<MediaEntry> media, Instant createdAt, Instant updatedAt) {
     public record MediaEntry(UUID id, String type, int position) {}
-    public static PhotoRecordResponse from(PhotoRecord record, List<MediaEntry> entries) {
+    public static PhotoRecordResponse from(PhotoRecord record, List<TagSummary> tags, List<MediaEntry> entries) {
         return new PhotoRecordResponse(record.getId(), record.getChildId(), record.getDate(), record.getDescription(),
-                entries, record.getCreatedAt(), record.getUpdatedAt());
+                tags, entries, record.getCreatedAt(), record.getUpdatedAt());
     }
 }

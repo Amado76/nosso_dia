@@ -58,6 +58,139 @@ class PhotoMediaTests {
                 .andReturn().getResponse().getContentAsString();
         return com.jayway.jsonpath.JsonPath.read(json, "$.id");
     }
+    private String tag(UUID owner, String family, String name) throws Exception {
+        String json = mvc.perform(post(family + "/tags").with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content("{\"name\":\"" + name + "\"}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        return com.jayway.jsonpath.JsonPath.read(json, "$.id");
+    }
+    @Test void repeatedMetadataPatchPreservesUpdateTimestamp() throws Exception {
+        UUID owner = user(); String family = family(owner), records = child(owner, family);
+        String image = upload(owner, family), label = tag(owner, family, "Reading");
+        String created = mvc.perform(post(records).with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content("{\"date\":\"2020-01-01\",\"mediaIds\":[\"" + image + "\"]}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String id = com.jayway.jsonpath.JsonPath.read(created, "$.id");
+        String patchBody = "{\"date\":\"2020-01-02\",\"description\":\"Visit\",\"tagIds\":[\"" + label + "\"]}";
+        String first = mvc.perform(patch(records + "/" + id).with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content(patchBody))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String updatedAt = com.jayway.jsonpath.JsonPath.read(first, "$.updatedAt");
+        mvc.perform(patch(records + "/" + id).with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content(patchBody))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.updatedAt").value(updatedAt));
+    }
+    @Test void singleImageReplacementRejectsInsertionPosition() throws Exception {
+        UUID owner = user(); String family = family(owner), records = child(owner, family);
+        String first = upload(owner, family), second = upload(owner, family);
+        String created = mvc.perform(post(records).with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content("{\"date\":\"2020-01-01\",\"mediaIds\":[\"" + first + "\"]}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String id = com.jayway.jsonpath.JsonPath.read(created, "$.id");
+        mvc.perform(put(records + "/" + id + "/media/" + first).with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content("{\"mediaId\":\"" + second + "\",\"position\":0}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        mvc.perform(get(records + "/" + id).with(jwt().jwt(j -> j.subject(owner.toString()))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.media[0].id").value(first));
+    }
+    @Test void repeatedFullAndMediaReplacementPreserveUpdateTimestamp() throws Exception {
+        UUID owner = user(); String family = family(owner), records = child(owner, family);
+        String first = upload(owner, family), second = upload(owner, family);
+        String body = "{\"date\":\"2020-01-01\",\"mediaIds\":[\"" + first + "\"]}";
+        String created = mvc.perform(post(records).with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content(body))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String id = com.jayway.jsonpath.JsonPath.read(created, "$.id");
+        String createdAt = com.jayway.jsonpath.JsonPath.read(created, "$.updatedAt");
+        mvc.perform(put(records + "/" + id).with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content(body))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.updatedAt").value(createdAt));
+        String mediaBody = "{\"mediaIds\":[\"" + second + "\",\"" + first + "\"]}";
+        String reordered = mvc.perform(put(records + "/" + id + "/media").with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content(mediaBody))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String reorderedAt = com.jayway.jsonpath.JsonPath.read(reordered, "$.updatedAt");
+        mvc.perform(put(records + "/" + id + "/media").with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content(mediaBody))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.updatedAt").value(reorderedAt));
+    }
+    @Test void photoRecordsSupportFamilyTagsFiltersAndIndependentEdits() throws Exception {
+        UUID owner = user(); String family = family(owner), records = child(owner, family);
+        String first = upload(owner, family), second = upload(owner, family);
+        String reading = tag(owner, family, "Reading"), school = tag(owner, family, "School");
+        String json = mvc.perform(post(records).with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content("{\"date\":\"2020-01-01\",\"description\":\"  Library visit  \",\"mediaIds\":[\"" + first + "\"],\"tagIds\":[\"" + reading + "\",\"" + school + "\"]}"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.tags.length()").value(2))
+                .andReturn().getResponse().getContentAsString();
+        String id = com.jayway.jsonpath.JsonPath.read(json, "$.id");
+        mvc.perform(get(records + "?date=2020-01-01&query=library&tagIds=" + reading + "&tagIds=" + school)
+                .with(jwt().jwt(j -> j.subject(owner.toString()))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value(id));
+        mvc.perform(patch(records + "/" + id).with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content("{\"description\":null,\"tagIds\":[]}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.description").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.tags.length()").value(0)).andExpect(jsonPath("$.media[0].id").value(first));
+        mvc.perform(post(records + "/" + id + "/media").with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content("{\"mediaId\":\"" + second + "\",\"position\":0}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.media[0].id").value(second))
+                .andExpect(jsonPath("$.media[1].id").value(first));
+    }
+    @Test void photoTagFiltersAndMutationsKeepFamilyAndRecordIntegrity() throws Exception {
+        UUID owner=user(), outsider=user(); String family=family(owner), records=child(owner,family);
+        String own=upload(owner,family), second=upload(owner,family), foreignFamily=family(outsider);
+        String reading=tag(owner,family,"Reading"), school=tag(owner,family,"School"), foreign=tag(outsider,foreignFamily,"Other");
+        String json=mvc.perform(post(records).with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content("{\"date\":\"2020-01-01\",\"mediaIds\":[\""+own+"\"],\"tagIds\":[\""+reading+"\",\""+school+"\"]}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String id=com.jayway.jsonpath.JsonPath.read(json,"$.id");
+        mvc.perform(post(records).with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content("{\"date\":\"2020-01-02\",\"description\":\"Other visit\",\"mediaIds\":[\""+second+"\"],\"tagIds\":[\""+reading+"\"]}"))
+                .andExpect(status().isCreated());
+        mvc.perform(get(records+"?tagIds="+reading+"&tagIds="+school).with(jwt().jwt(j -> j.subject(owner.toString()))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1));
+        mvc.perform(get(records+"?from=2020-01-01&to=2020-01-02&query=OTHER&tagIds="+reading+"&size=1")
+                .with(jwt().jwt(j -> j.subject(owner.toString()))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].date").value("2020-01-02"))
+                .andExpect(jsonPath("$.hasNext").value(false));
+        mvc.perform(get(records+"?tagIds="+reading+"&size=1")
+                .with(jwt().jwt(j -> j.subject(owner.toString()))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.hasNext").value(true));
+        mvc.perform(get(records+"?tagIds="+reading+"&tagIds="+foreign).with(jwt().jwt(j -> j.subject(owner.toString()))))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("TAG_NOT_FOUND"));
+        mvc.perform(get(records+"?tagIds="+reading+"&tagIds="+reading).with(jwt().jwt(j -> j.subject(owner.toString()))))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        mvc.perform(get(records+"?date=2020-01-01&from=2020-01-01").with(jwt().jwt(j -> j.subject(owner.toString()))))
+                .andExpect(status().isBadRequest());
+        mvc.perform(patch(records+"/"+id).with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content("{\"tagIds\":[\""+foreign+"\"]}"))
+                .andExpect(status().isNotFound());
+        mvc.perform(get(records+"/"+id).with(jwt().jwt(j -> j.subject(owner.toString()))))
+                .andExpect(jsonPath("$.tags.length()").value(2));
+        mvc.perform(put(records+"/"+id+"/media").with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content("{\"mediaIds\":[\""+second+"\",\""+own+"\"]}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.media[0].id").value(second));
+        mvc.perform(put(records+"/"+id+"/media/"+own).with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content("{\"mediaId\":\""+UUID.randomUUID()+"\"}"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(delete(records+"/"+id+"/media/"+second).with(jwt().jwt(j -> j.subject(owner.toString()))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.media.length()").value(1));
+        mvc.perform(delete(records+"/"+id+"/media/"+own).with(jwt().jwt(j -> j.subject(owner.toString()))))
+                .andExpect(status().isBadRequest());
+        UUID recordId=UUID.fromString(id), familyId=UUID.fromString(family.substring(family.lastIndexOf('/')+1));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> jdbc.update(
+                "insert into beehome.photo_record_tags(family_id,photo_record_id,tag_id) values (?,?,?)",
+                familyId,recordId,UUID.fromString(foreign)))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> jdbc.update(
+                "insert into beehome.photo_record_tags(family_id,photo_record_id,tag_id) values (?,?,?)",
+                familyId,recordId,UUID.fromString(school)))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        mvc.perform(delete(family+"/tags/"+reading).with(jwt().jwt(j -> j.subject(owner.toString()))))
+                .andExpect(status().isNoContent());
+        mvc.perform(get(records+"/"+id).with(jwt().jwt(j -> j.subject(owner.toString()))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.tags.length()").value(1));
+    }
     @Test void memberCanUploadAndReadPrivateImage() throws Exception {
         UUID owner = user(); String route = family(owner) + "/media";
         byte[] png = java.util.Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=");

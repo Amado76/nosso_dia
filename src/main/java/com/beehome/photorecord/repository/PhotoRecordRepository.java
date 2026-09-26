@@ -14,8 +14,11 @@ public interface PhotoRecordRepository extends JpaRepository<PhotoRecord, UUID> 
     Optional<PhotoRecord> lock(UUID familyId, UUID childId, UUID id);
     @Query("select r from PhotoRecord r where r.familyId=:familyId and r.childId=:childId " +
             "and r.date between :from and :to " +
+            "and (:query = '' or locate(:query,lower(r.description)) > 0) " +
+            "and (select count(distinct t.tagId) from PhotoRecordTag t where t.photoRecordId=r.id and t.tagId in :tagIds)=:tagCount " +
             "order by r.date desc, r.createdAt desc, r.id desc")
-    Slice<PhotoRecord> history(UUID familyId, UUID childId, LocalDate from, LocalDate to, Pageable page);
+    Slice<PhotoRecord> history(UUID familyId, UUID childId, LocalDate from, LocalDate to,
+            String query, Collection<UUID> tagIds, long tagCount, Pageable page);
     @Query("select r from PhotoRecord r where r.familyId=:familyId and r.childId=:childId and r.date between :from and :to order by r.date desc, r.createdAt desc, r.id desc")
     List<PhotoRecord> range(UUID familyId, UUID childId, LocalDate from, LocalDate to);
     @Query("select distinct r.date from PhotoRecord r where r.familyId=:familyId and r.childId=:childId and r.date between :from and :to order by r.date")
