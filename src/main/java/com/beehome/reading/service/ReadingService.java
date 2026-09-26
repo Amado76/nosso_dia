@@ -87,9 +87,13 @@ public class ReadingService {
         authorization.requireMembership(user,family); return bookResponses(family,List.of(book(family,id,false))).getFirst();
     }
     @Transactional(readOnly=true)
-    public ReadingPage<BookResponse> listBooks(UUID user,UUID family,List<UUID> tagIds,int page,int size) {
+    public ReadingPage<BookResponse> listBooks(UUID user,UUID family,String query,List<UUID> tagIds,int page,int size) {
         authorization.requireMembership(user,family); tags.requireTags(user,family,tagIds);
-        var rows=tagIds.isEmpty() ? books.list(family,page(page,size)) : books.listTagged(family,tagIds,tagIds.size(),page(page,size));
+        var pageable=page(page,size);
+        var search=query==null || query.isBlank() ? null : query.trim().toLowerCase(Locale.ROOT);
+        var rows=search==null
+                ? (tagIds.isEmpty() ? books.list(family,pageable) : books.listTagged(family,tagIds,tagIds.size(),pageable))
+                : (tagIds.isEmpty() ? books.search(family,search,pageable) : books.searchTagged(family,search,tagIds,tagIds.size(),pageable));
         return new ReadingPage<>(bookResponses(family,rows.getContent()),page,size,rows.hasNext());
     }
     @Transactional

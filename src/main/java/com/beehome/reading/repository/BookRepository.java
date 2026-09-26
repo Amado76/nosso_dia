@@ -11,9 +11,18 @@ public interface BookRepository extends JpaRepository<Book,UUID> {
     Optional<Book> lock(UUID family,UUID id);
     @Query("select b from Book b where b.familyId=:family order by b.createdAt desc,b.id desc")
     Slice<Book> list(UUID family,Pageable page);
+    @Query("select b from Book b where b.familyId=:family and " +
+            "(locate(:query, lower(b.title)) > 0 or locate(:query, lower(b.author)) > 0) " +
+            "order by b.createdAt desc,b.id desc")
+    Slice<Book> search(UUID family,String query,Pageable page);
     @Query("select b from Book b where b.familyId = :family and (:tagCount = 0 or b.id in " +
             "(select bt.bookId from BookTag bt where bt.tagId in :tagIds group by bt.bookId having count(bt.tagId) = :tagCount)) " +
             "order by b.createdAt desc, b.id desc")
     Slice<Book> listTagged(UUID family, Collection<UUID> tagIds, long tagCount, Pageable page);
+    @Query("select b from Book b where b.familyId=:family and " +
+            "(locate(:query, lower(b.title)) > 0 or locate(:query, lower(b.author)) > 0) and b.id in " +
+            "(select bt.bookId from BookTag bt where bt.tagId in :tagIds group by bt.bookId having count(bt.tagId) = :tagCount) " +
+            "order by b.createdAt desc,b.id desc")
+    Slice<Book> searchTagged(UUID family,String query,Collection<UUID> tagIds,long tagCount,Pageable page);
     List<Book> findByFamilyIdAndIdIn(UUID family,Collection<UUID> ids);
 }

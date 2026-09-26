@@ -118,6 +118,34 @@ class ReadingTests {
                 media,id(family),user,media.toString());
         return media.toString();
     }
+    @Test void searchesFamilyCatalogByTitleAndAuthorAndReusesBookAcrossChildren() throws Exception {
+        UUID owner=user(), outsider=user(); String family=family(owner), other=family(owner);
+        String firstChild=member(owner,family), secondChild=member(owner,family);
+        String hobbit=create(owner,family+"/books","{\"title\":\"The Hobbit\",\"author\":\"J. R. R. Tolkien\"}");
+        create(owner,family+"/books","{\"title\":\"Matilda\",\"author\":\"Roald Dahl\"}");
+        create(owner,other+"/books","{\"title\":\"Another Hobbit\",\"author\":\"Tolkien\"}");
+        create(owner,firstChild+"/books","{\"bookId\":\""+hobbit+"\"}");
+        for(String query:java.util.List.of("The Hobbit","hob","HOBBIT","J. R. R. Tolkien","tolk","TOLK"))
+            mvc.perform(get(family+"/books").param("query",query).with(jwt().jwt(j->j.subject(owner.toString()))))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1))
+                    .andExpect(jsonPath("$.items[0].id").value(hobbit));
+        mvc.perform(get(family+"/books").param("query","missing").with(jwt().jwt(j->j.subject(owner.toString()))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0))
+                .andExpect(jsonPath("$.page").value(0)).andExpect(jsonPath("$.size").value(20))
+                .andExpect(jsonPath("$.hasNext").value(false));
+        mvc.perform(get(family+"/books").param("query","  ").param("size","1")
+                .with(jwt().jwt(j->j.subject(owner.toString()))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.hasNext").value(true));
+        mvc.perform(get(family+"/books").param("query","hob")).andExpect(status().isUnauthorized());
+        mvc.perform(get(family+"/books").param("query","hob")
+                .with(jwt().jwt(j->j.subject(outsider.toString())))).andExpect(status().isNotFound());
+        create(owner,secondChild+"/books","{\"bookId\":\""+hobbit+"\"}");
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject(
+                "select count(*) from beehome.books where id = ?",Integer.class,UUID.fromString(hobbit))).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject(
+                "select count(*) from beehome.child_books where book_id = ?",Integer.class,UUID.fromString(hobbit))).isEqualTo(2);
+    }
     @Test void coversUseFamilyMediaAndCannotBeDeletedWhileInUse() throws Exception {
         UUID user=user(); String family=family(user), other=family(user);
         String image=media(user,family), foreignImage=media(user,other);

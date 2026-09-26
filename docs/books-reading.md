@@ -1,9 +1,10 @@
 # Books and reading API
 
 PDR-08 provides BeeHome family books, individual child reading journeys, and dated
-reading sessions. Base URL: `/api`. This is a private reading log, not a digital
-library, catalog lookup, or competition. No new configuration or dependencies are
-required. Flyway V12 creates `books`, `child_books`, and `reading_sessions`.
+reading sessions. Base URL: `/api`. The family catalog can be searched before
+linking a book to another child; there is no external catalog lookup. No new
+configuration or dependencies are required. Flyway V12 creates `books`,
+`child_books`, and `reading_sessions`.
 
 ## Authentication and ownership
 
@@ -28,7 +29,7 @@ In the table, `F` means `/api/families/{familyId}` and `C` means
 | Method | Route | Success | Purpose |
 | --- | --- | --- | --- |
 | POST | `F/books` | 201 + Location | Create a family book. |
-| GET | `F/books` | 200 | Page the family catalog. |
+| GET | `F/books` | 200 | Page or search the family catalog. |
 | GET | `F/books/{bookId}` | 200 | Read book metadata. |
 | PUT | `F/books/{bookId}` | 200 | Replace all editable metadata. |
 | DELETE | `F/books/{bookId}` | 204 | Delete an unused book. |
@@ -180,12 +181,24 @@ to 0 and must be nonnegative; `size` defaults to 20 and must be 1–100. Offsets
 2147483646 are invalid. Ordering is fixed, with UUID as the final tie-breaker:
 
 - Books and journeys: `createdAt DESC, id DESC`. Journeys accept optional `status`.
+- Books accept optional `query` as a literal, case-insensitive substring of title
+  or author. Leading and trailing whitespace is trimmed; a missing or blank query
+  lists the catalog normally. Results include books already linked to any child
+  in the family. A query with no matches returns an empty page. Search is limited
+  to the requested family and runs before pagination.
 - Books accept repeated `tagIds` query parameters; all requested tags must be
-  assigned. The filter runs before pagination. Duplicate IDs return 400, while
-  missing or foreign-family tag IDs return 404.
+  assigned. Text and tag filters combine with AND before pagination. Duplicate
+  IDs return 400, while missing or foreign-family tag IDs return 404.
 - Sessions: `date DESC, createdAt DESC, id DESC`. Optional `from`, `to`, and `bookId`
   filter inclusive dates and book across all its journeys. Either date bound can
   be omitted; a reversed range is invalid. A supplied book must belong to the family.
+
+For example, `GET F/books?query=tolkien&tagIds=<tag-uuid>&tagIds=<other-tag-uuid>&page=0&size=20`
+finds family books whose title or author contains `tolkien` and that have both
+tags. Send `Authorization: Bearer <access-token>`; GET has no request body. Select
+an existing result and POST its `id` as `bookId` to `C/books` for the target child.
+If no suitable book exists, POST to `F/books` first. This creates separate child
+journeys for one family book; the search itself creates or changes nothing.
 
 `GET C/reading-summary?from=2026-09-01&to=2026-09-30` requires both dates, with an
 inclusive maximum configured by `app.reports.max-period-days`
@@ -237,7 +250,8 @@ Malformed JSON and framework errors follow the global API contract. Semantic
 validation uses stable codes and does not promise a field-errors array. Never send
 ownership/audit fields or the hidden internal `fields` property.
 
-Typical flow: upload optional cover → create book → create journey → add sessions
+Typical flow: search family books → select a result or upload an optional cover
+and create a book → create a journey with its `bookId` → add sessions
 → PATCH completion with its historical date → read current/history lists and
 summary. No external services are called inside reading transactions. Child writes
 serialize with child updates; book writes and session page validation serialize

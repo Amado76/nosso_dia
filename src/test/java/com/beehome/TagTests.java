@@ -70,6 +70,41 @@ class TagTests {
     }
 
     @Test
+    void combinesBookSearchWithAllRequestedTagsAndPagination() throws Exception {
+        UUID owner = user(), family = family(owner);
+        String base = "/api/families/" + family;
+        UUID history = tag(owner, base, "History"), nature = tag(owner, base, "Nature");
+        String both = createBook(owner, base, "The Hobbit", "Tolkien", history, nature);
+        createBook(owner, base, "Unrelated", "Someone Else", history, nature);
+        createBook(owner, base, "Other Hobbit", "Tolkien", history);
+        createBook(owner, base, "Nature guide", "Tolkien", nature);
+        mvc.perform(get(base + "/books").param("query", "TOLK")
+                .param("tagIds", history.toString(), nature.toString())
+                .with(jwt().jwt(j -> j.subject(owner.toString()))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(both));
+        mvc.perform(get(base + "/books").param("query", "tolk")
+                .param("tagIds", history.toString()).param("size", "1")
+                .with(jwt().jwt(j -> j.subject(owner.toString()))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.hasNext").value(true));
+        mvc.perform(get(base + "/books").param("query", "tolk")
+                .param("tagIds", history.toString(), history.toString())
+                .with(jwt().jwt(j -> j.subject(owner.toString()))))
+                .andExpect(status().isBadRequest());
+    }
+
+    private String createBook(UUID user, String base, String title, String author, UUID... tags) throws Exception {
+        String ids = java.util.Arrays.stream(tags).map(id -> "\"" + id + "\"")
+                .collect(java.util.stream.Collectors.joining(","));
+        String body = mvc.perform(post(base + "/books").with(jwt().jwt(j -> j.subject(user.toString())))
+                .contentType("application/json").content("{\"title\":\"" + title + "\",\"author\":\"" + author
+                        + "\",\"tagIds\":[" + ids + "]}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        return JsonPath.read(body, "$.id");
+    }
+
+    @Test
     void replacingBookWithoutTagIdsClearsExistingTags() throws Exception {
         UUID owner = user(), family = family(owner);
         String base = "/api/families/" + family;
