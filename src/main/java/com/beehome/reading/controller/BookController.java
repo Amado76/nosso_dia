@@ -28,10 +28,11 @@ public class BookController {
         var result=service.createBook(user(jwt),familyId,body);
         return ResponseEntity.created(URI.create("/api/families/"+familyId+"/books/"+result.id())).body(result);
     }
-    @GetMapping @Operation(summary="Page family books, newest first; size 1–100")
+    @GetMapping @Operation(summary="Page family books, newest first; size 1–100", description="Repeated tagIds require every requested family tag; combines with pagination")
     public ReadingPage<BookResponse> list(@AuthenticationPrincipal Jwt jwt,@PathVariable UUID familyId,
+            @RequestParam(required=false) java.util.List<UUID> tagIds,
             @RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size) {
-        return service.listBooks(user(jwt),familyId,page,size);
+        return service.listBooks(user(jwt),familyId,tagIds==null ? java.util.List.of() : tagIds,page,size);
     }
     @GetMapping("/{bookId}") @Operation(summary="Read a family book")
     public BookResponse get(@AuthenticationPrincipal Jwt jwt,@PathVariable UUID familyId,@PathVariable UUID bookId) {

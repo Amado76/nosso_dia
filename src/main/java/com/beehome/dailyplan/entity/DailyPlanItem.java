@@ -11,6 +11,7 @@ import com.beehome.shared.exception.InputException;
 public class DailyPlanItem {
     @Id private UUID id;
     @Column(nullable = false) private UUID dailyPlanId;
+    @Column(nullable = false) private UUID familyId;
     @Column(nullable = false, length = 120) private String title;
     @Column(length = 2000) private String description;
     private LocalTime scheduledTime;
@@ -19,8 +20,8 @@ public class DailyPlanItem {
     @Column(nullable = false) private Instant createdAt;
     @Column(nullable = false) private Instant updatedAt;
     protected DailyPlanItem() {}
-    public DailyPlanItem(UUID dailyPlanId, String title, String description, LocalTime time, Integer order, Instant now) {
-        id = UUID.randomUUID(); this.dailyPlanId = dailyPlanId; 
+    public DailyPlanItem(UUID familyId, UUID dailyPlanId, String title, String description, LocalTime time, Integer order, Instant now) {
+        id = UUID.randomUUID(); this.familyId = familyId; this.dailyPlanId = dailyPlanId;
         active = true; createdAt = now; edit(title, description, time, order, now);
     }
     public void edit(String title, String description, LocalTime time, Integer order, Instant now) {
@@ -35,6 +36,7 @@ public class DailyPlanItem {
     public void setActive(boolean value, Instant now) { if (active != value) { active = value; updatedAt = now; } }
     public UUID getId() { return id; }
     public UUID getDailyPlanId() { return dailyPlanId; }
+    public UUID getFamilyId() { return familyId; }
     public String getTitle() { return title; }
     public String getDescription() { return description; }
     public LocalTime getScheduledTime() { return scheduledTime; }

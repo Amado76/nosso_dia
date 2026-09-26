@@ -9,6 +9,8 @@ import com.beehome.family.exception.FamilyException;
 import com.beehome.familymember.service.FamilyMemberService;
 import com.beehome.shared.dto.ItemOrderRequest;
 import com.beehome.shared.exception.InputException;
+import com.beehome.tag.dto.TagSummary;
+import com.beehome.tag.service.TagService;
 import java.time.*;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -20,12 +22,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class RoutineService {
     private final RoutineRepository routines;
     private final RoutineItemRepository items;
+    private final RoutineItemTagRepository itemTags;
+    private final TagService tags;
     private final FamilyAuthorizationService authorization;
     private final FamilyMemberService members;
     private final Clock clock;
-    public RoutineService(RoutineRepository routines, RoutineItemRepository items,
+    public RoutineService(RoutineRepository routines, RoutineItemRepository items, RoutineItemTagRepository itemTags, TagService tags,
             FamilyAuthorizationService authorization, FamilyMemberService members, Clock clock) {
-        this.routines = routines; this.items = items; this.authorization = authorization; this.members = members; this.clock = clock;
+        this.routines = routines; this.items = items; this.itemTags=itemTags; this.tags=tags;
+        this.authorization = authorization; this.members = members; this.clock = clock;
     }
     @Transactional
     public RoutineResponse create(UUID user, UUID family, CreateRoutineRequest request) {
@@ -66,11 +71,14 @@ public class RoutineService {
     @Transactional
     public RoutineItemResponse createItem(UUID user, UUID family, UUID id, CreateRoutineItemRequest request) {
         editable(user, family, id);
+        tags.requireTags(user,family,request.tagIds());
         if (request.familyMemberId() == null) throw new InputException();
         members.requireActive(user, family, request.familyMemberId(), true);
         if (items.countByRoutineId(id) >= 500) throw new InputException();
-        return RoutineItemResponse.from(items.save(new RoutineItem(id, family, request.familyMemberId(),
-                request.title(), request.description(), request.scheduledTime(), request.sortOrder(), clock.instant())));
+        var item=items.saveAndFlush(new RoutineItem(id, family, request.familyMemberId(),
+                request.title(), request.description(), request.scheduledTime(), request.sortOrder(), clock.instant()));
+        replaceTags(user,family,item.getId(),request.tagIds());
+        return itemResponses(family,List.of(item)).getFirst();
     }
     @Transactional
     public RoutineItemResponse editItem(UUID user, UUID family, UUID id, UUID itemId, PatchRoutineItemRequest request) {
@@ -78,6 +86,7 @@ public class RoutineService {
         var item = item(family, id, itemId);
         var fields = request.fields();
         if (fields.isEmpty()) throw new InputException();
+        if(fields.contains("tagIds")) tags.requireTags(user,family,request.tagIds());
         UUID member = fields.contains("familyMemberId") ? request.familyMemberId() : item.getFamilyMemberId();
         if (member == null) throw new InputException();
         members.requireActive(user, family, member, true);
@@ -87,7 +96,8 @@ public class RoutineService {
                 fields.contains("scheduledTime") ? request.scheduledTime() : item.getScheduledTime(),
                 fields.contains("sortOrder") ? request.sortOrder() : Integer.valueOf(item.getSortOrder()), now);
         item.assign(member, now);
-        return RoutineItemResponse.from(item);
+        if(fields.contains("tagIds")) replaceTags(user,family,itemId,request.tagIds());
+        return itemResponses(family,List.of(item)).getFirst();
     }
     @Transactional
     public RoutineItemResponse setItemActive(UUID user, UUID family, UUID id, UUID itemId, boolean active) {
@@ -95,7 +105,7 @@ public class RoutineService {
         var item = item(family, id, itemId);
         if (active) members.requireActive(user, family, item.getFamilyMemberId(), true);
         item.setActive(active, clock.instant());
-        return RoutineItemResponse.from(item);
+        return itemResponses(family,List.of(item)).getFirst();
     }
     @Transactional
     public RoutineResponse reorder(UUID user, UUID family, UUID id, ItemOrderRequest request) {
@@ -126,6 +136,21 @@ public class RoutineService {
         return result;
     }
     private RoutineResponse detail(Routine routine) {
-        return RoutineResponse.from(routine, allItems(routine.getFamilyId(), routine.getId()).stream().map(RoutineItemResponse::from).toList());
+        return RoutineResponse.from(routine, itemResponses(routine.getFamilyId(),allItems(routine.getFamilyId(), routine.getId())));
+    }
+    private void replaceTags(UUID user,UUID family,UUID itemId,List<UUID> ids) {
+        tags.requireTags(user,family,ids);
+        itemTags.deleteByRoutineItemId(itemId);
+        itemTags.flush();
+        itemTags.saveAll(ids.stream().map(id -> new RoutineItemTag(family,itemId,id)).toList());
+    }
+    private List<RoutineItemResponse> itemResponses(UUID family,List<RoutineItem> rows) {
+        if(rows.isEmpty()) return List.of();
+        var links=itemTags.findByRoutineItemIdIn(rows.stream().map(RoutineItem::getId).toList());
+        Map<UUID,TagSummary> summaries=tags.summaries(family,links.stream().map(RoutineItemTag::getTagId).collect(Collectors.toSet()));
+        Map<UUID,List<TagSummary>> byItem=new HashMap<>();
+        for(var link:links) byItem.computeIfAbsent(link.getRoutineItemId(),_ -> new ArrayList<>()).add(summaries.get(link.getTagId()));
+        return rows.stream().map(row -> RoutineItemResponse.from(row,byItem.getOrDefault(row.getId(),List.of()).stream()
+                .sorted(Comparator.comparing(TagSummary::name).thenComparing(TagSummary::id)).toList())).toList();
     }
 }

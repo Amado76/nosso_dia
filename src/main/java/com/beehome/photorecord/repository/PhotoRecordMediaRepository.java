@@ -3,7 +3,6 @@ package com.beehome.photorecord.repository;
 import com.beehome.photorecord.entity.PhotoRecordMedia;
 import java.util.*;
 import org.springframework.data.jpa.repository.*;
-import org.springframework.data.repository.query.Param;
 
 public interface PhotoRecordMediaRepository extends JpaRepository<PhotoRecordMedia, UUID> {
     List<PhotoRecordMedia> findByPhotoRecordIdOrderByPosition(UUID id);

@@ -64,11 +64,11 @@ cannot set resource IDs.
 | --- | --- |
 | Create routine | Required `name`, `daysOfWeek`; optional nullable `startDate`, `endDate` |
 | Patch routine | Nonempty subset of those four fields |
-| Create routine item | Required `familyMemberId`, `title`, `sortOrder`; optional nullable `description`, `scheduledTime` |
-| Patch routine item | Nonempty subset of those five fields |
+| Create routine item | Required `familyMemberId`, `title`, `sortOrder`; optional nullable `description`, `scheduledTime`; optional non-null `tagIds` |
+| Patch routine item | Nonempty subset of those fields |
 | Set note | Required `note` property, string or null |
-| Create daily item | Required `title`, `sortOrder`; optional nullable `description`, `scheduledTime` |
-| Patch daily item | Nonempty subset of those four fields |
+| Create daily item | Required `title`, `sortOrder`; optional nullable `description`, `scheduledTime`; optional non-null `tagIds` |
+| Patch daily item | Nonempty subset of those fields |
 | Replace order | Required `items` array of `{id, sortOrder}` objects |
 
 Name/title: non-null strings, stripped at both ends, nonblank, at most 120 UTF-16
@@ -85,6 +85,10 @@ items.
 
 PATCH omission preserves. Explicit null clears only date bounds, description,
 and scheduledTime. Required fields cannot be null. Empty patches are invalid.
+For item requests, `tagIds` is an array of at most 100 unique family tag UUIDs.
+Omission creates no links and preserves links on PATCH; `[]` clears them. Invalid
+arrays return 400 and foreign-family or missing tags return 404 `TAG_NOT_FOUND`.
+All links are replaced atomically. See [global tags](global-tags.md).
 Routine item edits validate the resulting assignment even when familyMemberId
 is omitted. Reactivating a routine item requires an active assignee; deactivation
 remains available.
@@ -139,9 +143,12 @@ Routine detail contains `id`, `familyId` (UUID strings), `name` (string), `activ
 All fields are present; only date bounds may be null.
 
 Routine items contain `id`, `familyMemberId`, `title`, nullable `description`,
-nullable `scheduledTime`, `sortOrder`, `active`, `createdAt`, and `updatedAt`.
+nullable `scheduledTime`, `sortOrder`, `active`, `createdAt`, `updatedAt`, and
+`tags` (array of `{id,name,color}`, where color may be null).
 Daily items have the same fields except familyMemberId, which comes from the
 route. All fields are present; only description/time may be null.
+Resolved day items also contain `tags` for both ROUTINE and DAILY_PLAN sources.
+The current planning collections have no tag search filter.
 Creation defaults active to true. State assignments are idempotent. Audit times
 change only when persisted row state changes; item edits do not change parent
 routine/plan audit times. There are no completion, actor, or history properties.
@@ -157,7 +164,7 @@ returns 400. The same authentication, date validation, and safe 404 rules apply.
 Example management response:
 
 ```json
-[{"id":"65b49c07-0e41-4d29-8b7f-ed5f00a4a941","title":"Library visit","description":null,"scheduledTime":"15:00","sortOrder":1,"active":false,"createdAt":"2026-09-21T12:00:00Z","updatedAt":"2026-09-21T13:00:00Z"}]
+[{"id":"65b49c07-0e41-4d29-8b7f-ed5f00a4a941","title":"Library visit","description":null,"scheduledTime":"15:00","sortOrder":1,"active":false,"createdAt":"2026-09-21T12:00:00Z","updatedAt":"2026-09-21T13:00:00Z","tags":[]}]
 ```
 
 Routine listing accepts `includeInactive=false`, `page=0`, `size=20`.
@@ -194,7 +201,7 @@ Resolved day example:
     "source":"ROUTINE",
     "sourceId":"8fdfc836-2824-451f-a2d7-842a2593f447",
     "title":"Breakfast","description":"Prepare fruit",
-    "scheduledTime":"08:30","sortOrder":0
+    "scheduledTime":"08:30","sortOrder":0,"tags":[]
   }]
 }
 ```
@@ -226,6 +233,7 @@ details localized. Framework parsing failures may lack an application code.
 | 404 | ROUTINE_NOT_FOUND / ROUTINE_ITEM_NOT_FOUND: missing or mismatched nested resource |
 | 404 | DAILY_PLAN_NOT_FOUND: item mutation/reorder on a date without a plan |
 | 404 | DAILY_PLAN_ITEM_NOT_FOUND: item outside the path's plan |
+| 404 | TAG_NOT_FOUND: item references a missing or foreign-family tag |
 | 405 / 415 | Unsupported method / non-JSON request media type |
 | 500 | INTERNAL_SERVER_ERROR: reconcile uncertain writes before retry |
 

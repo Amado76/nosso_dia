@@ -10,10 +10,10 @@ import java.util.*;
 public record CreateDailyPlanItemRequest(@Schema(minLength = 1, maxLength = 120, description = "Stripped nonblank title") String title,
         @Schema(nullable = true, maxLength = 2000, description = "Stripped; blank becomes null") String description,
         @Schema(type = "string", pattern = "^[0-9]{2}:[0-9]{2}$", nullable = true) LocalTime scheduledTime,
-        @Schema(minimum = "0", maximum = "2147483647") Integer sortOrder) {
+        @Schema(minimum = "0", maximum = "2147483647") Integer sortOrder, List<UUID> tagIds) {
     @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
     public static CreateDailyPlanItemRequest fromJson(Map<String, Object> values) {
-        JsonFields.only(values, "title", "description", "scheduledTime", "sortOrder");
-        return new CreateDailyPlanItemRequest(JsonFields.string(values.get("title")), JsonFields.string(values.get("description")), JsonFields.time(values.get("scheduledTime")), JsonFields.integer(values.get("sortOrder")));
+        JsonFields.only(values, "title", "description", "scheduledTime", "sortOrder", "tagIds");
+        return new CreateDailyPlanItemRequest(JsonFields.string(values.get("title")), JsonFields.string(values.get("description")), JsonFields.time(values.get("scheduledTime")), JsonFields.integer(values.get("sortOrder")), JsonFields.uuidList(values,"tagIds"));
     }
 }

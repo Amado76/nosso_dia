@@ -73,12 +73,14 @@ public class StudySessionController {
             @PathVariable UUID memberId, @PathVariable UUID sessionId) {
         return service.voidSession(user(principal), familyId, memberId, sessionId);
     }
-    @GetMapping("/study-sessions") @Operation(summary = "Page non-voided study history by inclusive dates")
+    @GetMapping("/study-sessions") @Operation(summary = "Page non-voided study history by inclusive dates", description="Repeated tagIds require all requested family tags and combine with date and subject filters")
     public StudySessionPage history(@AuthenticationPrincipal Jwt principal, @PathVariable UUID familyId,
             @PathVariable UUID memberId, @RequestParam String from, @RequestParam String to,
-            @RequestParam(required = false) UUID subjectId, @RequestParam(defaultValue = "0") int page,
+            @RequestParam(required = false) UUID subjectId, @RequestParam(required = false) List<UUID> tagIds,
+            @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return service.history(user(principal), familyId, memberId, JsonFields.date(from), JsonFields.date(to), subjectId, page, size);
+        return service.history(user(principal), familyId, memberId, JsonFields.date(from), JsonFields.date(to), subjectId,
+                tagIds==null ? List.of() : tagIds, page, size);
     }
     @GetMapping("/study-summary") @Operation(summary = "Completed study duration by subject and inclusive date range")
     public StudySummary summary(@AuthenticationPrincipal Jwt principal, @PathVariable UUID familyId,

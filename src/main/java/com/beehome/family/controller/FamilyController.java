@@ -1,6 +1,4 @@
 package com.beehome.family.controller;
-
-import com.beehome.family.entity.Family;
 import com.beehome.family.service.FamilyService;
 
 import com.beehome.family.dto.*;

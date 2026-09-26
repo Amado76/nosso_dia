@@ -2,7 +2,6 @@ package com.beehome.photorecord.service;
 
 import com.beehome.familymember.entity.MemberType;
 import com.beehome.familymember.service.FamilyMemberService;
-import com.beehome.media.exception.MediaException;
 import com.beehome.media.repository.MediaRepository;
 import com.beehome.photorecord.dto.*;
 import com.beehome.photorecord.entity.*;

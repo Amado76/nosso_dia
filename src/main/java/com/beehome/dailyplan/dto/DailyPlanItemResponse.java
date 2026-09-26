@@ -4,12 +4,17 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.*;
 import java.util.UUID;
+import java.util.List;
+import com.beehome.tag.dto.TagSummary;
 @Schema(requiredProperties = {"id", "title", "description", "scheduledTime", "sortOrder", "active", "createdAt", "updatedAt"})
 public record DailyPlanItemResponse(UUID id, String title, @Schema(nullable = true) String description,
         @JsonFormat(pattern = "HH:mm") @Schema(type = "string", nullable = true, example = "08:30") LocalTime scheduledTime,
-        int sortOrder, boolean active, Instant createdAt, Instant updatedAt) {
+        int sortOrder, boolean active, Instant createdAt, Instant updatedAt, List<TagSummary> tags) {
     public static DailyPlanItemResponse from(DailyPlanItem i) {
+        return from(i,List.of());
+    }
+    public static DailyPlanItemResponse from(DailyPlanItem i,List<TagSummary> tags) {
         return new DailyPlanItemResponse(i.getId(), i.getTitle(), i.getDescription(), i.getScheduledTime(),
-                i.getSortOrder(), i.isActive(), i.getCreatedAt(), i.getUpdatedAt());
+                i.getSortOrder(), i.isActive(), i.getCreatedAt(), i.getUpdatedAt(), tags);
     }
 }

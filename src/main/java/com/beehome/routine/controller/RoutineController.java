@@ -3,7 +3,6 @@ package com.beehome.routine.controller;
 import com.beehome.routine.dto.*;
 import com.beehome.routine.service.RoutineService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;

@@ -11,6 +11,8 @@ import com.beehome.familymember.dto.FamilyMemberResponse;
 import com.beehome.routine.repository.RoutineItemRepository;
 import com.beehome.shared.dto.*;
 import com.beehome.shared.exception.InputException;
+import com.beehome.tag.dto.TagSummary;
+import com.beehome.tag.service.TagService;
 import java.time.*;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -22,15 +24,20 @@ import org.springframework.transaction.annotation.Transactional;
 public class DailyPlanService {
     private final DailyPlanRepository plans;
     private final DailyPlanItemRepository items;
+    private final DailyPlanItemTagRepository itemTags;
+    private final TagService tags;
+    private final com.beehome.routine.repository.RoutineItemTagRepository routineItemTags;
     // Focused read query for resolution; routine writes remain in RoutineService.
     private final RoutineItemRepository routineItems;
     private final FamilyAuthorizationService authorization;
     private final FamilyMemberService members;
     private final FamilyService families;
     private final Clock clock;
-    public DailyPlanService(DailyPlanRepository plans, DailyPlanItemRepository items, RoutineItemRepository routineItems,
+    public DailyPlanService(DailyPlanRepository plans, DailyPlanItemRepository items, DailyPlanItemTagRepository itemTags,
+            TagService tags, com.beehome.routine.repository.RoutineItemTagRepository routineItemTags, RoutineItemRepository routineItems,
             FamilyAuthorizationService authorization, FamilyMemberService members, FamilyService families, Clock clock) {
-        this.plans = plans; this.items = items; this.routineItems = routineItems; this.authorization = authorization;
+        this.plans = plans; this.items = items; this.itemTags=itemTags; this.tags=tags; this.routineItemTags=routineItemTags;
+        this.routineItems = routineItems; this.authorization = authorization;
         this.members = members; this.families = families; this.clock = clock;
     }
     @Transactional(readOnly = true)
@@ -44,7 +51,7 @@ public class DailyPlanService {
         members.requireActive(user, family, member, false);
         JsonFields.required(date);
         return plans.findByFamilyIdAndFamilyMemberIdAndPlanDate(family, member, date)
-                .map(plan -> allItems(plan.getId()).stream().map(DailyPlanItemResponse::from).toList())
+                .map(plan -> itemResponses(family,allItems(plan.getId())))
                 .orElseGet(List::of);
     }
     @Transactional
@@ -61,11 +68,14 @@ public class DailyPlanService {
     @Transactional
     public DailyPlanItemResponse createItem(UUID user, UUID family, UUID member, LocalDate date, CreateDailyPlanItemRequest request) {
         editable(user, family, member, date);
+        tags.requireTags(user,family,request.tagIds());
         var plan = createPlan(family, member, date);
-        var item = new DailyPlanItem(plan.getId(), request.title(), request.description(), request.scheduledTime(), request.sortOrder(), clock.instant());
+        var item = new DailyPlanItem(family,plan.getId(), request.title(), request.description(), request.scheduledTime(), request.sortOrder(), clock.instant());
         if (items.countByDailyPlanId(plan.getId()) >= 500) throw new InputException();
         ensureOrder(plan.getId(), item.getId(), item.getSortOrder());
-        return DailyPlanItemResponse.from(items.save(item));
+        items.saveAndFlush(item);
+        replaceTags(user,family,item.getId(),request.tagIds());
+        return itemResponses(family,List.of(item)).getFirst();
     }
     @Transactional
     public DailyPlanItemResponse editItem(UUID user, UUID family, UUID member, LocalDate date, UUID id, PatchDailyPlanItemRequest request) {
@@ -74,19 +84,21 @@ public class DailyPlanService {
         var item = item(plan, id);
         var fields = request.fields();
         if (fields.isEmpty()) throw new InputException();
+        if(fields.contains("tagIds")) tags.requireTags(user,family,request.tagIds());
         item.edit(fields.contains("title") ? request.title() : item.getTitle(),
                 fields.contains("description") ? request.description() : item.getDescription(),
                 fields.contains("scheduledTime") ? request.scheduledTime() : item.getScheduledTime(),
                 fields.contains("sortOrder") ? request.sortOrder() : Integer.valueOf(item.getSortOrder()), clock.instant());
         ensureOrder(plan.getId(), item.getId(), item.getSortOrder());
-        return DailyPlanItemResponse.from(item);
+        if(fields.contains("tagIds")) replaceTags(user,family,id,request.tagIds());
+        return itemResponses(family,List.of(item)).getFirst();
     }
     @Transactional
     public DailyPlanItemResponse setItemActive(UUID user, UUID family, UUID member, LocalDate date, UUID id, boolean active) {
         editable(user, family, member, date);
         var item = item(requiredPlan(family, member, date), id);
         item.setActive(active, clock.instant());
-        return DailyPlanItemResponse.from(item);
+        return itemResponses(family,List.of(item)).getFirst();
     }
     @Transactional
     public List<DailyPlanItemResponse> reorder(UUID user, UUID family, UUID member, LocalDate date, ItemOrderRequest request) {
@@ -99,8 +111,7 @@ public class DailyPlanService {
         var order = request.validate(expected);
         var now = clock.instant();
         all.forEach(item -> item.reorder(order.get(item.getId()), now));
-        return all.stream().sorted(Comparator.comparingInt(DailyPlanItem::getSortOrder))
-                .map(DailyPlanItemResponse::from).toList();
+        return itemResponses(family,all.stream().sorted(Comparator.comparingInt(DailyPlanItem::getSortOrder)).toList());
     }
     private FamilyMemberResponse editable(UUID user, UUID family, UUID member, LocalDate date) {
         authorization.requireEditor(authorization.requireMembership(user, family));
@@ -125,17 +136,43 @@ public class DailyPlanService {
         if (result.size() > 500) throw new InputException();
         return result;
     }
+    private void replaceTags(UUID user,UUID family,UUID itemId,List<UUID> ids) {
+        tags.requireTags(user,family,ids);
+        itemTags.deleteByDailyPlanItemId(itemId);
+        itemTags.flush();
+        itemTags.saveAll(ids.stream().map(id -> new DailyPlanItemTag(family,itemId,id)).toList());
+    }
+    private List<DailyPlanItemResponse> itemResponses(UUID family,List<DailyPlanItem> rows) {
+        if(rows.isEmpty()) return List.of();
+        var links=itemTags.findByDailyPlanItemIdIn(rows.stream().map(DailyPlanItem::getId).toList());
+        Map<UUID,TagSummary> summaries=tags.summaries(family,links.stream().map(DailyPlanItemTag::getTagId).collect(Collectors.toSet()));
+        Map<UUID,List<TagSummary>> byItem=new HashMap<>();
+        for(var link:links) byItem.computeIfAbsent(link.getDailyPlanItemId(),_ -> new ArrayList<>()).add(summaries.get(link.getTagId()));
+        return rows.stream().map(row -> DailyPlanItemResponse.from(row,byItem.getOrDefault(row.getId(),List.of()).stream()
+                .sorted(Comparator.comparing(TagSummary::name).thenComparing(TagSummary::id)).toList())).toList();
+    }
     private ResolvedDailyPlan resolved(UUID user, UUID family, FamilyMemberResponse member, LocalDate date) {
         var recurring = routineItems.applicable(family, member.id(), date, date.getDayOfWeek(), PageRequest.of(0, 1001));
         if (recurring.size() > 1000) throw new InputException();
         var result = new ArrayList<ResolvedDailyPlan.Item>();
-        recurring.forEach(i -> result.add(new ResolvedDailyPlan.Item(ResolvedDailyPlan.Source.ROUTINE, i.getId(),
-                i.getTitle(), i.getDescription(), i.getScheduledTime(), i.getSortOrder())));
+        var routineLinks=routineItemTags.findByRoutineItemIdIn(recurring.stream().map(com.beehome.routine.entity.RoutineItem::getId).toList());
         var plan = plans.findByFamilyIdAndFamilyMemberIdAndPlanDate(family, member.id(), date);
+        var dailyRows=plan.isPresent() ? allItems(plan.get().getId()).stream().filter(DailyPlanItem::isActive).toList() : List.<DailyPlanItem>of();
+        var dailyLinks=itemTags.findByDailyPlanItemIdIn(dailyRows.stream().map(DailyPlanItem::getId).toList());
+        var tagIds=new HashSet<UUID>();
+        routineLinks.forEach(link -> tagIds.add(link.getTagId()));
+        dailyLinks.forEach(link -> tagIds.add(link.getTagId()));
+        var summaries=tags.summaries(family,tagIds);
+        Map<UUID,List<TagSummary>> assigned=new HashMap<>();
+        routineLinks.forEach(link -> assigned.computeIfAbsent(link.getRoutineItemId(),_ -> new ArrayList<>()).add(summaries.get(link.getTagId())));
+        dailyLinks.forEach(link -> assigned.computeIfAbsent(link.getDailyPlanItemId(),_ -> new ArrayList<>()).add(summaries.get(link.getTagId())));
+        assigned.values().forEach(list -> list.sort(Comparator.comparing(TagSummary::name).thenComparing(TagSummary::id)));
+        recurring.forEach(i -> result.add(new ResolvedDailyPlan.Item(ResolvedDailyPlan.Source.ROUTINE, i.getId(),
+                i.getTitle(), i.getDescription(), i.getScheduledTime(), i.getSortOrder(),assigned.getOrDefault(i.getId(),List.of()))));
         if (plan.isPresent()) {
-            allItems(plan.get().getId()).stream().filter(DailyPlanItem::isActive).forEach(i ->
+            dailyRows.forEach(i ->
                     result.add(new ResolvedDailyPlan.Item(ResolvedDailyPlan.Source.DAILY_PLAN, i.getId(),
-                            i.getTitle(), i.getDescription(), i.getScheduledTime(), i.getSortOrder())));
+                            i.getTitle(), i.getDescription(), i.getScheduledTime(), i.getSortOrder(),assigned.getOrDefault(i.getId(),List.of()))));
         }
         if (result.size() > 1000) throw new InputException();
         result.sort(Comparator.comparingInt(ResolvedDailyPlan.Item::sortOrder).thenComparing(ResolvedDailyPlan.Item::source)

@@ -1,8 +1,5 @@
 package com.beehome.family.repository;
-
 import com.beehome.family.entity.Family;
-import com.beehome.family.entity.FamilyMembership;
-
 import com.beehome.family.dto.FamilyResponse;
 import java.util.Optional;
 import java.util.UUID;

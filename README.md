@@ -69,6 +69,9 @@ and [Calendar, History, and Reports PRD](docs/pdr-09-calendar-history-reports-pr
 PDR-10 provides editable, vector-based profile scratchpads with cross-device
 synchronization. See the [Profile Scratchpad PRD](docs/pdr-10-profile-scratchpad-prd.md).
 For the implemented endpoints, see the [profile scratchpad integration guide](docs/profile-scratchpad.md).
+PDR-11 introduces family-wide user-defined tags reusable across supported domains.
+See the [Global Family Tags PRD](docs/pdr-11-global-tags-prd.md).
+For the implemented endpoints and resource assignments, see the [global tags integration guide](docs/global-tags.md).
 Feature names and API examples below illustrate organization; they are not approved
 requirements and do not authorize implementing business features.
 

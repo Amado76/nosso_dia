@@ -60,10 +60,14 @@ Create and replace accept:
 | isbn | string | Optional, nullable | Trimmed, maximum 32 characters; no catalog lookup or ISBN checksum validation. |
 | totalPages | integer | Optional, nullable | Positive, at most 2147483647. |
 | coverMediaId | UUID | Optional, nullable | Existing IMAGE in the same family. |
+| tagIds | UUID array | Optional, non-null when supplied | Up to 100 unique IDs of tags in this family; `[]` clears links. |
 
 Blank optional text becomes null. PUT requires title and replaces every optional
 field: omission or null clears it. Reducing totalPages below existing session
 page counts or recorded positions is rejected. Removing the limit is allowed.
+Book PUT clears tag links when `tagIds` is omitted or `[]` is supplied. A supplied
+array replaces all links atomically; a missing or foreign-family tag returns 404
+`TAG_NOT_FOUND`.
 
 Minimal request: `{"title":"School storybook"}`. Full request:
 
@@ -77,8 +81,11 @@ Minimal request: `{"title":"School storybook"}`. Full request:
 }
 ```
 
-A book response contains all five fields above (optional values can be null), plus
+A book response contains all five metadata fields above (optional values can be null), plus
 non-null `id`, `familyId`, `createdBy` (UUIDs), `createdAt`, and `updatedAt` (instants).
+It also contains `tags`, an array of `{id,name,color}` with nullable color; it is
+empty when the book has no tags. See [global tags](global-tags.md) for normalization,
+validation, and the tag management API.
 Only the authenticated user supplies `createdBy` internally.
 
 Upload through [Media](photos-media.md) first, retain the returned ID, then create
@@ -173,6 +180,9 @@ to 0 and must be nonnegative; `size` defaults to 20 and must be 1–100. Offsets
 2147483646 are invalid. Ordering is fixed, with UUID as the final tie-breaker:
 
 - Books and journeys: `createdAt DESC, id DESC`. Journeys accept optional `status`.
+- Books accept repeated `tagIds` query parameters; all requested tags must be
+  assigned. The filter runs before pagination. Duplicate IDs return 400, while
+  missing or foreign-family tag IDs return 404.
 - Sessions: `date DESC, createdAt DESC, id DESC`. Optional `from`, `to`, and `bookId`
   filter inclusive dates and book across all its journeys. Either date bound can
   be omitted; a reversed range is invalid. A supplied book must belong to the family.
@@ -219,6 +229,7 @@ stable `code`, never on translated text. For example:
 | 401 | UNAUTHENTICATED | Follow the existing token refresh/login flow. |
 | 403 | FORBIDDEN | Reading writes require OWNER or ADMIN. |
 | 404 | FAMILY_NOT_FOUND, FAMILY_MEMBER_NOT_FOUND, BOOK_NOT_FOUND, CHILD_BOOK_NOT_FOUND, READING_SESSION_NOT_FOUND | Refresh the current authorized resource selection. |
+| 404 | TAG_NOT_FOUND | Select tags from the current family. |
 | 409 | BOOK_ALREADY_ACTIVE | Reuse the current journey or close it before a reread. |
 | 409 | BOOK_IN_USE | Retain the book and change journey status. |
 

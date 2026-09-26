@@ -133,7 +133,7 @@ class DrawingTests {
         String body = "{\"formatVersion\":1,\"revision\":0,\"strokes\":[]}" + " ".repeat(5 * 1024 * 1024);
         mvc.perform(put(path(family, member)).with(jwt().jwt(j -> j.subject(owner.toString())))
                         .contentType("application/json").content(body))
-                .andExpect(status().isPayloadTooLarge()).andExpect(jsonPath("$.code").value("DRAWING_TOO_LARGE"));
+                .andExpect(status().isContentTooLarge()).andExpect(jsonPath("$.code").value("DRAWING_TOO_LARGE"));
         assertThat(jdbc.queryForObject("select count(*) from beehome.drawings where family_id = ? and member_id = ?", Integer.class, family, member)).isZero();
     }
 

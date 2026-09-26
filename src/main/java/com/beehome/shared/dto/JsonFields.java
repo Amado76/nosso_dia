@@ -30,6 +30,11 @@ public final class JsonFields {
             return id;
         } catch (IllegalArgumentException e) { throw new InputException(); }
     }
+    public static List<UUID> uuidList(Map<String,Object> values, String field) {
+        if (!values.containsKey(field)) return List.of();
+        if (!(values.get(field) instanceof List<?> raw) || raw.size() > 100) throw new InputException();
+        return raw.stream().map(JsonFields::uuid).toList();
+    }
     public static Integer integer(Object value) {
         if (value == null) return null;
         if (value instanceof Integer n && n >= 0) return n;

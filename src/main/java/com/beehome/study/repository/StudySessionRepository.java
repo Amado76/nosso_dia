@@ -11,6 +11,12 @@ public interface StudySessionRepository extends JpaRepository<StudySession, UUID
     Optional<StudySession> findByFamilyIdAndFamilyMemberIdAndStatus(UUID family, UUID member, StudyStatus status);
     @Query("select s from StudySession s where s.familyId = :family and s.familyMemberId = :member and s.status <> 'VOIDED' and s.date between :from and :to and (:subject is null or s.subjectId = :subject) order by s.date desc, s.startedAt desc nulls last, s.id desc")
     Slice<StudySession> history(UUID family, UUID member, LocalDate from, LocalDate to, UUID subject, Pageable page);
+    @Query("select s from StudySession s where s.familyId = :family and s.familyMemberId = :member and s.status <> 'VOIDED' " +
+            "and s.date between :from and :to and (:subject is null or s.subjectId = :subject) " +
+            "and s.id in (select st.sessionId from StudySessionTag st where st.tagId in :tagIds group by st.sessionId having count(st.tagId) = :tagCount) " +
+            "order by s.date desc, s.startedAt desc nulls last, s.id desc")
+    Slice<StudySession> historyTagged(UUID family, UUID member, LocalDate from, LocalDate to, UUID subject,
+            Collection<UUID> tagIds, long tagCount, Pageable page);
     @Query("select s from StudySession s where s.familyId = :family and s.familyMemberId = :member and s.status <> 'VOIDED' and s.date between :from and :to order by s.date desc, s.id desc")
     List<StudySession> range(UUID family, UUID member, LocalDate from, LocalDate to);
     @Query("select distinct s.date from StudySession s where s.familyId = :family and s.familyMemberId = :member and s.status <> 'VOIDED' and s.date between :from and :to order by s.date")

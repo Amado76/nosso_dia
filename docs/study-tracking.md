@@ -77,6 +77,8 @@ Start request example:
 
 All start fields are optional or nullable. Manual creation adds required `date`
 and `durationSeconds`: `{"date":"2026-09-21","durationSeconds":1800,"subjectId":null}`.
+Start and manual creation also accept optional non-null `tagIds`, an array of up
+to 100 unique IDs of tags in the same family. Omission or `[]` starts untagged.
 Duration is an integer from 0 through 31,536,000 seconds. `title` is at most 120
 UTF-16 code units, `notes` at most 10,000; blank text is stored as null. A supplied
 subject must be active and in the family. A supplied execution item must belong
@@ -87,7 +89,7 @@ daily execution item.
 Response example:
 
 ```json
-{"id":"33333333-3333-4333-8333-333333333333","familyId":"22222222-2222-4222-8222-222222222222","familyMemberId":"44444444-4444-4444-8444-444444444444","subjectId":"11111111-1111-4111-8111-111111111111","dailyExecutionItemId":null,"subjectNameSnapshot":"Mathematics","date":"2026-09-21","title":"Algebra","notes":"Chapter 3","entryMode":"TIMER","status":"RUNNING","startedAt":"2026-09-21T12:00:00Z","currentRunStartedAt":"2026-09-21T12:00:00Z","endedAt":null,"accumulatedDurationSeconds":0,"createdByUserId":"55555555-5555-4555-8555-555555555555","createdAt":"2026-09-21T12:00:00Z","updatedAt":"2026-09-21T12:00:00Z","version":0}
+{"id":"33333333-3333-4333-8333-333333333333","familyId":"22222222-2222-4222-8222-222222222222","familyMemberId":"44444444-4444-4444-8444-444444444444","subjectId":"11111111-1111-4111-8111-111111111111","dailyExecutionItemId":null,"subjectNameSnapshot":"Mathematics","date":"2026-09-21","title":"Algebra","notes":"Chapter 3","entryMode":"TIMER","status":"RUNNING","startedAt":"2026-09-21T12:00:00Z","currentRunStartedAt":"2026-09-21T12:00:00Z","endedAt":null,"accumulatedDurationSeconds":0,"createdByUserId":"55555555-5555-4555-8555-555555555555","createdAt":"2026-09-21T12:00:00Z","updatedAt":"2026-09-21T12:00:00Z","version":0,"tags":[]}
 ```
 
 Every field is present. `subjectId`, `dailyExecutionItemId`, snapshot, title,
@@ -95,6 +97,8 @@ notes, and timer timestamps may be null. Manual sessions have null timer
 timestamps, `entryMode=MANUAL`, and `status=COMPLETED`. The subject name is captured
 at creation and survives renames. The authenticated user supplies
 `createdByUserId`; clients cannot supply actor, status, timer date or timestamps.
+Responses also contain `tags`, an array of `{id,name,color}` with nullable color.
+See [global tags](global-tags.md) for the tag management API and validation.
 
 Timer flow: start → pause → resume → finish, or start → finish, or paused → finish.
 Only running intervals count. Start fixes the date in the family's timezone and
@@ -106,11 +110,14 @@ GET `/current` reads that running session only; a paused session yields 204.
 No background process closes abandoned timers.
 
 PATCH accepts a nonempty subset of `subjectId`, `dailyExecutionItemId`, `title`,
-`notes`, `date`, `durationSeconds`. Null clears the optional reference and text
+`notes`, `date`, `durationSeconds`, `tagIds`. Null clears the optional reference and text
 fields. Date and duration require non-null values and are allowed only for
 completed manual sessions. Completed timer dates, durations, and timestamps are
 immutable; no administrative timer time reconstruction is defined. PATCH does not
 accept state, actor, or timestamps. Only completed sessions can be corrected.
+Omitted `tagIds` preserves existing links; `[]` clears them. A supplied array
+replaces all links atomically. Invalid arrays return 400; missing or foreign-family
+tags return 404 `TAG_NOT_FOUND`.
 Voiding preserves the row and excludes it from normal reads, history, and totals;
 timer commands cannot reverse it. A running timer void includes its current
 interval and records its end. If its total duration exceeds 31,536,000 seconds,
@@ -122,7 +129,10 @@ Voiding twice returns 404 after the first void.
 ## History and summary
 
 GET base requires inclusive `from` and `to`; `from <= to`. Optional `subjectId`
-filters to that subject, including inactive subjects. `page` defaults to 0 and
+filters to that subject, including inactive subjects. Repeated optional `tagIds`
+filter sessions carrying every requested tag, together with subject and date
+filters. Duplicate IDs return 400; missing or foreign-family IDs return 404.
+`page` defaults to 0 and
 `size` to 20; size must be 1–100 and the offset must fit the supported integer
 range. Example: `?from=2026-09-01&to=2026-09-30&subjectId=<uuid>&page=0&size=20`.
 History includes running, paused, and completed sessions, excludes voided ones,
@@ -151,6 +161,7 @@ The summary is scoped to the addressed family member.
 | 403 | `FORBIDDEN` | ADMIN/OWNER required |
 | 404 | `FAMILY_NOT_FOUND`, `FAMILY_MEMBER_NOT_FOUND` | Inaccessible family or member |
 | 404 | `STUDY_SUBJECT_NOT_FOUND`, `STUDY_SESSION_NOT_FOUND`, `STUDY_EXECUTION_ITEM_NOT_FOUND` | Missing or mismatched resource |
+| 404 | `TAG_NOT_FOUND` | Missing or foreign-family tag ID |
 | 409 | `STUDY_SUBJECT_DUPLICATE` | Rename or choose another subject |
 | 409 | `STUDY_INVALID_STATE` | Reload the session and choose a valid command |
 | 409 | `STUDY_CONFLICT` | Reload after concurrent start, resume, or edit |
