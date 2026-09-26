@@ -66,6 +66,9 @@ PDR-09 provides a calendar, child history, and live period reports over
 existing routine, study, reading, and photo records, including paginated reading
 detail and live reading totals. See the [calendar, history, and reports integration guide](docs/calendar-history-reports.md)
 and [Calendar, History, and Reports PRD](docs/pdr-09-calendar-history-reports-prd.md).
+PDR-10 provides editable, vector-based profile scratchpads with cross-device
+synchronization. See the [Profile Scratchpad PRD](docs/pdr-10-profile-scratchpad-prd.md).
+For the implemented endpoints, see the [profile scratchpad integration guide](docs/profile-scratchpad.md).
 Feature names and API examples below illustrate organization; they are not approved
 requirements and do not authorize implementing business features.
 

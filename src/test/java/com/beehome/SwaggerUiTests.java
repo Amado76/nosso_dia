@@ -59,4 +59,17 @@ class SwaggerUiTests {
                         .value(org.hamcrest.Matchers.contains(100)));
     }
 
+    @Test void documentsProfileScratchpadWithNestedTypesAndBearerAccess() throws Exception {
+        String route = "/api/families/{familyId}/members/{memberId}/drawings/profile-scratchpad";
+        mvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.paths['" + route + "'].get.security[0].bearerAuth").isArray())
+                .andExpect(jsonPath("$.paths['" + route + "'].put.requestBody.content['application/json'].schema['$ref']")
+                        .value("#/components/schemas/DrawingUpdate"))
+                .andExpect(jsonPath("$.components.schemas.DrawingUpdate.properties.strokes.items['$ref']")
+                        .value("#/components/schemas/DrawingStroke"))
+                .andExpect(jsonPath("$.components.schemas.DrawingStroke.properties.points.items['$ref']")
+                        .value("#/components/schemas/DrawingPoint"))
+                .andExpect(jsonPath("$.components.schemas.DrawingResponse.properties.revision").exists());
+    }
+
 }

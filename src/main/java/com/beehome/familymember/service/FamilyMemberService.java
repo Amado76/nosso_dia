@@ -75,6 +75,14 @@ public class FamilyMemberService {
         return FamilyMemberResponse.from(members.findByFamilyIdAndId(familyId, memberId).orElseThrow(FamilyMemberException::notFound));
     }
 
+    /** Serialize dependent resource creation and updates for the same profile. */
+    @Transactional
+    public FamilyRole lockForDependentWrite(UUID userId, UUID familyId, UUID memberId) {
+        var role = authorization.requireMembership(userId, familyId);
+        locked(familyId, memberId);
+        return role;
+    }
+
     @Transactional
     public FamilyMemberResponse edit(UUID userId, UUID familyId, UUID memberId, PatchFamilyMemberRequest request) {
         var role = authorization.requireMembership(userId, familyId);
