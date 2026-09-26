@@ -138,8 +138,12 @@ class TagTests {
                 .contentType("application/json").content("{\"name\":\"Child\",\"memberType\":\"CHILD\"}"))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         String sessions = base + "/members/" + JsonPath.read(member, "$.id") + "/study-sessions";
+        String subjectJson = mvc.perform(post(base + "/study-subjects").with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content("{\"name\":\"General\"}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String subjectId = JsonPath.read(subjectJson, "$.id");
         mvc.perform(post(sessions).with(jwt().jwt(j -> j.subject(owner.toString())))
-                .contentType("application/json").content("{\"date\":\"2026-09-20\",\"durationSeconds\":120,\"tagIds\":[\"" + tag + "\"]}"))
+                .contentType("application/json").content("{\"date\":\"2026-09-20\",\"durationSeconds\":120,\"subjectId\":\"" + subjectId + "\",\"tagIds\":[\"" + tag + "\"]}"))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.tags[0].id").value(tag.toString()));
         mvc.perform(get(sessions).param("from", "2026-09-20").param("to", "2026-09-20")
                 .param("tagIds", tag.toString()).with(jwt().jwt(j -> j.subject(owner.toString()))))

@@ -64,6 +64,20 @@ class PhotoMediaTests {
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         return com.jayway.jsonpath.JsonPath.read(json, "$.id");
     }
+    @Test void dailyReportRejectsFifthPhotoAcrossRecords() throws Exception {
+        UUID owner = user(); String family = family(owner), records = child(owner, family);
+        String image = upload(owner, family);
+        for (int i = 0; i < 4; i++)
+            mvc.perform(post(records).with(jwt().jwt(j -> j.subject(owner.toString())))
+                    .contentType("application/json").content("{\"date\":\"2026-09-21\",\"mediaIds\":[\"" + image + "\"]}"))
+                    .andExpect(status().isCreated());
+        mvc.perform(get(records.replace("/photo-records", "/history/2026-09-21"))
+                .with(jwt().jwt(j -> j.subject(owner.toString()))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.photos.length()").value(4));
+        mvc.perform(post(records).with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content("{\"date\":\"2026-09-21\",\"mediaIds\":[\"" + image + "\"]}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
     @Test void repeatedMetadataPatchPreservesUpdateTimestamp() throws Exception {
         UUID owner = user(); String family = family(owner), records = child(owner, family);
         String image = upload(owner, family), label = tag(owner, family, "Reading");

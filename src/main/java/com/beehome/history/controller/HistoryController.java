@@ -2,6 +2,7 @@ package com.beehome.history.controller;
 
 import com.beehome.history.dto.*;
 import com.beehome.history.service.HistoryService;
+import com.beehome.history.pdf.DailyReportPdfRenderer;
 import com.beehome.shared.dto.JsonFields;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -9,6 +10,8 @@ import io.swagger.v3.oas.annotations.media.*;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import java.util.UUID;
+import java.text.Normalizer;
+import org.springframework.http.*;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -22,7 +25,8 @@ import org.springframework.web.bind.annotation.*;
 @ApiResponse(responseCode = "404", description = "Family or child missing or inaccessible")
 public class HistoryController {
     private final HistoryService history;
-    public HistoryController(HistoryService history) { this.history = history; }
+    private final DailyReportPdfRenderer pdf;
+    public HistoryController(HistoryService history, DailyReportPdfRenderer pdf) { this.history = history; this.pdf = pdf; }
     private static UUID user(Jwt jwt) { return UUID.fromString(jwt.getSubject()); }
 
     @GetMapping("/history/{date}")
@@ -32,6 +36,21 @@ public class HistoryController {
             @Parameter(schema = @Schema(minimum = "0", defaultValue = "0")) @RequestParam(defaultValue = "0") int readingPage,
             @Parameter(schema = @Schema(minimum = "1", maximum = "100", defaultValue = "20")) @RequestParam(defaultValue = "20") int readingSize) {
         return history.detail(user(jwt), familyId, childId, JsonFields.date(date), readingPage, readingSize);
+    }
+    @GetMapping(value = "/history/{date}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    @Operation(summary = "Download an on-demand daily report PDF")
+    @ApiResponse(responseCode = "200", description = "On-demand daily report",
+            content = @Content(mediaType = "application/pdf", schema = @Schema(type = "string", format = "binary")))
+    public ResponseEntity<byte[]> pdf(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID familyId, @PathVariable UUID childId,
+            @Parameter(schema = @Schema(type = "string", format = "date")) @PathVariable String date) {
+        var day = history.reportDetail(user(jwt), familyId, childId, JsonFields.date(date));
+        String slug = Normalizer.normalize(day.childName(), Normalizer.Form.NFKD).replaceAll("\\p{M}+", "")
+                .toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("^-|-$", "");
+        if (slug.isBlank()) slug = "child";
+        String filename = "daily-report-" + slug + "-" + day.date() + ".pdf";
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .body(pdf.render(user(jwt), familyId, day));
     }
     @GetMapping("/calendar")
     @Operation(summary = "List dates with activity and source flags")

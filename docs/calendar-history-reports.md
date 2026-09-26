@@ -1,10 +1,10 @@
 # Calendar, history, and reports API
 
-This read-only API combines a child's existing daily execution, study sessions, reading sessions, and photo records at request time. It creates no snapshots and does not materialize missing routine days. Reading facts come from [Books and reading](books-reading.md). Media bytes are never returned.
+This read-only API combines a child's existing daily execution, study sessions, extracurricular records, reading sessions, and photo records at request time. It creates no snapshots and does not materialize missing routine days. Reading facts come from [Books and reading](books-reading.md). Media bytes are never returned in JSON. PDF export loads private images on demand and stores no report file.
 
 ## Access and configuration
 
-Base URL: `/api/families/{familyId}/children/{childId}`. All four routes require `Authorization: Bearer <access-token>` and an authenticated membership in the specified family. The child must be a family member whose `memberType` is `CHILD`; inactive children remain readable. An unknown family, inaccessible family, missing child, cross-family child, or adult ID returns a safe `404`. Clients may send `Accept-Language: en`, `pt`, or `es` for errors. Successful responses use `application/json`; errors use `application/problem+json`. There is no request body.
+Base URL: `/api/families/{familyId}/children/{childId}`. All five routes require `Authorization: Bearer <access-token>` and an authenticated membership in the specified family. The child must be a family member whose `memberType` is `CHILD`; inactive children remain readable. An unknown family, inaccessible family, missing child, cross-family child, or adult ID returns a safe `404`. Clients may send `Accept-Language: en`, `pt`, or `es` for errors. JSON responses use `application/json`, the PDF response uses `application/pdf`, and errors use `application/problem+json`. There is no request body.
 
 Dates use strict ISO `YYYY-MM-DD` format. `from` and `to` are required, inclusive, and have no implicit defaults. Periods cannot be reversed or exceed `app.reports.max-period-days`, which defaults to 366 and can be configured with `REPORTS_MAX_PERIOD_DAYS`. The maximum counts inclusive days: a 366-day period is accepted with the default. Routine, study, reading, and photo records use their stored local dates; timer study dates are assigned in the family's configured timezone when the source record is created. A later timezone change does not move existing dated records.
 
@@ -16,6 +16,7 @@ Dates use strict ISO `YYYY-MM-DD` format. `from` and `to` are required, inclusiv
 | `GET /calendar?year=2026&month=9` | `200` | Active dates in ascending order. |
 | `GET /history?from=2026-09-01&to=2026-09-30&page=0&size=20` | `200` | Active dates in descending order. |
 | `GET /reports?from=2026-09-01&to=2026-09-30` | `200` | Live totals over the requested period. |
+| `GET /history/2026-09-21/pdf` | `200` | On-demand daily PDF export. |
 
 `familyId` and `childId` are UUIDs. Calendar `year` and `month` are required integers: year 1–9999, month 1–12. The period history defaults to page 0 and size 20; page must be at least 0, size 1–100. `items` contains at most `size` entries and `hasNext` indicates another page. Dates with no source records are omitted. There is one row per date, so the date itself is the unique ordering key.
 
@@ -25,8 +26,10 @@ Dates use strict ISO `YYYY-MM-DD` format. `from` and `to` are required, inclusiv
 {
   "date": "2026-09-21",
   "childId": "11111111-1111-1111-1111-111111111111",
+  "childName": "Elias",
   "routine": null,
   "studies": [],
+  "extracurricularActivities": [],
   "reading": [
     {"id": "55555555-5555-5555-5555-555555555555",
      "childBookId": "66666666-6666-6666-6666-666666666666",
@@ -35,13 +38,14 @@ Dates use strict ISO `YYYY-MM-DD` format. `from` and `to` are required, inclusiv
   ],
   "readingPage": 0, "readingSize": 20, "readingHasNext": false,
   "photos": [
-    {"id": "22222222-2222-2222-2222-222222222222",
+    {"id": "22222222-2222-2222-2222-222222222222", "date": "2026-09-21",
+     "description": null, "tags": [],
      "media": [{"id": "33333333-3333-3333-3333-333333333333", "position": 0}]}
   ]
 }
 ```
 
-Every top-level field is present. `routine` is `null` when no daily execution exists; otherwise it follows the existing [execution response](daily-execution.md), including its summary and ordered items. `studies` follows the existing [study session response](study-tracking.md), excluding voided sessions. `photos` contains photo-record IDs and ordered media IDs and positions only. Empty sources are arrays. An empty day still returns `200` with `routine: null` and empty arrays. Routine records are never created by a history read.
+Every top-level field is present. `routine` is `null` when no daily execution exists; otherwise it follows the existing [execution response](daily-execution.md), including its summary and ordered items. `studies` follows the existing [study session response](study-tracking.md), excluding voided sessions. `extracurricularActivities` follows the [extracurricular record response](extracurricular-activities.md). `photos` contains photo-record IDs, dates, nullable descriptions, free-form tags, and ordered media IDs and positions. At most four media entries appear across the day's photo records. Empty sources are arrays. An empty day still returns `200` with `routine: null` and empty arrays. Routine records are never created by a history read.
 
 `reading` contains typed session entries: `id`, `childBookId`, and `bookId` are
 UUIDs, `bookTitle` is the current catalog title, and `minutes` and `pagesRead`
@@ -62,7 +66,7 @@ rejected. The response does not silently truncate reading activity.
 ```json
 {"year": 2026, "month": 9, "days": [
   {"date": "2026-09-21", "hasRoutine": true, "hasStudies": true,
-   "hasReading": true, "hasPhotos": false}
+   "hasReading": true, "hasPhotos": false, "hasExtracurricularActivities": false}
 ]}
 ```
 
@@ -74,7 +78,8 @@ Only dates with at least one source record appear. `days` is empty for an empty 
 {"items": [
   {"date": "2026-09-21", "hasRoutine": true, "plannedItems": 1,
    "completedItems": 1, "studySessions": 1, "studyDurationSeconds": 120, "readingSessions": 1,
-   "photoRecords": 1, "images": 2}
+   "photoRecords": 1, "images": 2,
+   "extracurricularRecords": 1, "extracurricularDurationMinutes": 180}
 ], "page": 0, "size": 20, "hasNext": false}
 ```
 
@@ -88,9 +93,11 @@ Only dates with at least one source record appear. `days` is empty for an empty 
   "from": "2026-09-01", "to": "2026-09-30",
   "routine": {"days": 1, "plannedItems": 1, "completedItems": 1},
   "studies": {"sessions": 1, "totalMinutes": 2.00,
-    "subjects": [{"subjectId": "44444444-4444-4444-4444-444444444444", "minutes": 2.00}]},
+    "subjects": [{"subjectId": "44444444-4444-4444-4444-444444444444", "records": 1, "minutes": 2.00}]},
   "reading": {"sessions": 1, "totalMinutes": 10, "pagesRead": 20, "books": 1, "booksCompleted": 0},
-  "photos": {"records": 1, "images": 2}
+  "photos": {"records": 1, "images": 2},
+  "extracurricularActivities": {"records": 1, "durationMinutes": 180,
+    "activities": [{"activityId": "88888888-8888-8888-8888-888888888888", "records": 1, "durationMinutes": 180}]}
 }
 ```
 
@@ -109,4 +116,14 @@ must update that property name. The reading summary shares
 
 `400 VALIDATION_ERROR` covers malformed or missing dates, reversed or excessive periods, invalid year/month, and invalid page/size or readingPage/readingSize. `401 UNAUTHENTICATED` means no valid Bearer token. `404 FAMILY_NOT_FOUND` or `FAMILY_MEMBER_NOT_FOUND` means the family or child is missing or inaccessible. Error `detail` is localized from `Accept-Language`; clients should use `code`. Framework parameter-conversion errors may use Spring's standard ProblemDetail without an application code.
 
-After obtaining the family and child IDs, a client can fetch the calendar for visible months, then detail for a selected date. Use history pages for a timeline and reports for totals. These GETs are idempotent and safe to retry after network failures. Since results are live, a later request can differ after another authorized client changes source records. There are no write side effects, special headers, export formats, or report-specific rate limits. Normal Bearer token renewal follows [authentication](authentication.md).
+After obtaining the family and child IDs, a client can fetch the calendar for visible months, then detail for a selected date. Use history pages for a timeline, reports for totals, and the PDF route for download. These GETs are idempotent and safe to retry after network failures. Since results are live, a later request can differ after another authorized client changes source records. There are no write side effects or report-specific rate limits. Normal Bearer token renewal follows [authentication](authentication.md).
+
+## Additional PDR-09 fields and rules
+
+Daily `studies[]` includes the current catalog `subjectName`, record `topic`, nullable `durationMinutes` for whole-minute manual sessions, `description`, `comments`, `material`, `startPage`, `endPage`, and free-form `tags`, in addition to the existing study-session fields. Existing `title`, `notes`, and timer duration remain available. A subject's current name changes in daily detail after a rename; its ID remains stable. `extracurricularActivities[]` contains each occurrence's `id`, `childId`, `date`, `activity: {id,name}`, nullable `topic`, `durationMinutes`, `description`, `comments`, `material`, `startPage`, `endPage`, `tags`, creator and timestamps, and version. For absent optional values, JSON uses `null` and lists use `[]`.
+
+Calendar day entries add `hasExtracurricularActivities`. History day entries add `extracurricularRecords` and `extracurricularDurationMinutes`. Both are nonnegative and computed through date-range grouped queries. Reports add `extracurricularActivities: {records,durationMinutes,activities[]}`; each activity row has `activityId`, `records`, and `durationMinutes`, sorted by activity ID. Tags never determine official study or activity identity or contribute to official totals. For example, a 60-minute Science study and a 180-minute Museum Visit tagged “Science” yield 60 Science study minutes and 180 Museum Visit activity minutes. Period reports use inclusive dates and the existing maximum period limit. Calendar and timeline retain their established ordering and pagination.
+
+## PDF export
+
+`GET /history/{date}/pdf` returns `200 application/pdf` with `Content-Disposition: attachment; filename="daily-report-<child-slug>-YYYY-MM-DD.pdf"`. The slug uses the child's current name normalized to lowercase ASCII letters and digits with hyphens; `child` is used when no safe characters remain. It includes the same authorized day's studies, extracurricular records, reading, routine, and up to four photographs. Reading pages are fetched until complete for the PDF; JSON detail remains paginated. Empty optional labels are omitted. Text and images continue onto later pages. Images larger than the PDF display area are resized in memory before embedding; stored originals remain untouched. An unreadable image can be skipped without discarding the rest of the report. The PDF is generated for each request and is never persisted. Use the same Bearer header; invalid dates and inaccessible children return the same errors as JSON detail. Clients may retry a failed download. The current PDF renderer preserves characters supported by its built-in font and transliterates or replaces unsupported characters.

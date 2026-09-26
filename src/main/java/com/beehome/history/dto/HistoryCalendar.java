@@ -6,5 +6,6 @@ import java.util.List;
 
 public record HistoryCalendar(int year, int month, List<Day> days) {
     @Schema(name = "HistoryCalendarDay")
-    public record Day(LocalDate date, boolean hasRoutine, boolean hasStudies, boolean hasReading, boolean hasPhotos) {}
+    public record Day(LocalDate date, boolean hasRoutine, boolean hasStudies, boolean hasReading, boolean hasPhotos,
+            boolean hasExtracurricularActivities) {}
 }

@@ -63,10 +63,14 @@ public class PhotoRecordService {
     private void addLinks(PhotoRecord record, List<UUID> ids) {
         for (int i=0;i<ids.size();i++) links.save(new PhotoRecordMedia(record.getId(),record.getFamilyId(),ids.get(i),i));
     }
+    private void requireDailyCapacity(UUID family, UUID child, LocalDate date, UUID exclude, int incoming) {
+        if (records.imageCount(family, child, date, exclude) + incoming > 4) throw new InputException();
+    }
     @Transactional
     public PhotoRecordResponse create(UUID user, UUID family, UUID child, PhotoRecordRequest body) {
         child(user,family,child,true); if (body==null) throw new InputException();
         body.validate(); tags.requireTags(user,family,body.normalizedTagIds()); lockMedia(family,body.mediaIds());
+        requireDailyCapacity(family,child,body.date(),null,body.mediaIds().size());
         var record=records.save(new PhotoRecord(family,child,user,body.date(),body.normalizedDescription(),clock.instant()));
         addLinks(record,body.mediaIds());
         setTags(record,body.normalizedTagIds());
@@ -137,6 +141,7 @@ public class PhotoRecordService {
         child(user,family,child,true); if (body==null) throw new InputException();
         body.validate(); tags.requireTags(user,family,body.normalizedTagIds());
         var record=records.lock(family,child,id).orElseThrow(PhotoRecordException::notFound);
+        requireDailyCapacity(family,child,body.date(),id,body.mediaIds().size());
         var old=links.findByPhotoRecordIdOrderByPosition(id);
         boolean sameMedia=old.stream().map(PhotoRecordMedia::getMediaId).toList().equals(body.mediaIds());
         boolean sameTags=Set.copyOf(tagIds(id)).equals(Set.copyOf(body.normalizedTagIds()));
@@ -159,6 +164,7 @@ public class PhotoRecordService {
         if (body.tagIds()!=null) tags.requireTags(user,family,body.tagIds());
         var record=records.lock(family,child,id).orElseThrow(PhotoRecordException::notFound);
         LocalDate date=body.fields().containsKey("date") ? body.date() : record.getDate();
+        requireDailyCapacity(family,child,date,id,links.findByPhotoRecordIdOrderByPosition(id).size());
         String description=body.fields().containsKey("description") ? body.description() : record.getDescription();
         boolean tagsChanged=body.tagIds()!=null && !Set.copyOf(tagIds(id)).equals(Set.copyOf(body.tagIds()));
         if (!Objects.equals(date,record.getDate()) || !Objects.equals(description,record.getDescription()) || tagsChanged)
@@ -172,8 +178,9 @@ public class PhotoRecordService {
         var record=records.lock(family,child,id).orElseThrow(PhotoRecordException::notFound);
         var old=links.findByPhotoRecordIdOrderByPosition(id).stream().map(PhotoRecordMedia::getMediaId).toList();
         var next=change.apply(old);
-        if (next==null || next.isEmpty() || next.size()>20 || next.contains(null) || new HashSet<>(next).size()!=next.size())
+        if (next==null || next.isEmpty() || next.size()>4 || next.contains(null) || new HashSet<>(next).size()!=next.size())
             throw new InputException();
+        requireDailyCapacity(family,child,record.getDate(),id,next.size());
         if (next.equals(old)) return response(record);
         var locked=new ArrayList<>(old); locked.addAll(next); lockMedia(family,locked);
         links.deleteForRecord(id); links.flush();

@@ -18,6 +18,13 @@ public class StudySession {
     @Column(name = "session_date", nullable = false) private LocalDate date;
     @Column(length = 120) private String title;
     @Column(columnDefinition = "text") private String notes;
+    @Column(length = 120) private String topic;
+    @Column(length = 10000) private String description;
+    @Column(length = 10000) private String comments;
+    @Column(length = 1000) private String material;
+    private Integer startPage;
+    private Integer endPage;
+    @Column(nullable = false) private boolean reportRecord;
     @Enumerated(EnumType.STRING) @Column(nullable = false) private EntryMode entryMode;
     @Enumerated(EnumType.STRING) @Column(nullable = false) private StudyStatus status;
     private Instant startedAt;
@@ -69,6 +76,23 @@ public class StudySession {
         if (seconds != null) { checkSeconds(seconds); accumulatedDurationSeconds = seconds; }
         this.title = title; this.notes = notes; updatedAt = now;
     }
+    public void details(String topic, String description, String comments, String material,
+            Integer startPage, Integer endPage, Instant now) {
+        if ((startPage != null && startPage <= 0) || (endPage != null && endPage <= 0)
+                || (startPage != null && endPage != null && endPage < startPage))
+            throw new com.beehome.shared.exception.InputException();
+        this.topic = clean(topic, 120); this.description = clean(description, 10000);
+        this.comments = clean(comments, 10000); this.material = clean(material, 1000);
+        this.startPage = startPage; this.endPage = endPage; updatedAt = now;
+    }
+    public void reportRecord() { reportRecord = true; }
+    public boolean isReportRecord() { return reportRecord; }
+    private static String clean(String value, int maximum) {
+        if (value == null || value.isBlank()) return null;
+        String result = value.strip();
+        if (result.length() > maximum) throw new com.beehome.shared.exception.InputException();
+        return result;
+    }
     public void voidSession(Instant now) {
         if (status == StudyStatus.VOIDED) return;
         // Voiding must release abandoned timers even when their duration exceeds storage bounds.
@@ -96,6 +120,12 @@ public class StudySession {
     public LocalDate getDate() { return date; }
     public String getTitle() { return title; }
     public String getNotes() { return notes; }
+    public String getTopic() { return topic; }
+    public String getDescription() { return description; }
+    public String getComments() { return comments; }
+    public String getMaterial() { return material; }
+    public Integer getStartPage() { return startPage; }
+    public Integer getEndPage() { return endPage; }
     public EntryMode getEntryMode() { return entryMode; }
     public StudyStatus getStatus() { return status; }
     public Instant getStartedAt() { return startedAt; }

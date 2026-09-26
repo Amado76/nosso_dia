@@ -18,6 +18,11 @@
 		<springdoc.version>3.1.1</springdoc.version>
 	</properties>
 	<dependencies>
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.8</version>
+        </dependency>
         <!-- The JDK has no WebP decoder; validate image payloads through ImageIO. -->
         <dependency>
             <groupId>com.twelvemonkeys.imageio</groupId>

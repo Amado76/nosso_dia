@@ -12,4 +12,5 @@ public interface StudySubjectRepository extends JpaRepository<StudySubject, UUID
     Optional<StudySubject> lockByFamilyIdAndId(UUID family, UUID id);
     @Query("select s from StudySubject s where s.familyId = :family and (:includeInactive = true or s.active = true) order by s.sortOrder, s.id")
     List<StudySubject> list(UUID family, boolean includeInactive);
+    List<StudySubject> findByFamilyIdAndIdIn(UUID family, Collection<UUID> ids);
 }

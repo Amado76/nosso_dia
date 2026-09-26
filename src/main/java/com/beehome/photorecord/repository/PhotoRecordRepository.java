@@ -29,4 +29,7 @@ public interface PhotoRecordRepository extends JpaRepository<PhotoRecord, UUID> 
             "group by r.date order by r.date desc")
     List<DayCount> dayCounts(UUID familyId, UUID childId, LocalDate from, LocalDate to);
     interface DayCount { LocalDate getDate(); Long getRecords(); Long getImages(); }
+    @Query("select count(l) from PhotoRecord r join PhotoRecordMedia l on l.photoRecordId = r.id " +
+            "where r.familyId = :family and r.childId = :child and r.date = :date and (:exclude is null or r.id <> :exclude)")
+    long imageCount(UUID family, UUID child, LocalDate date, UUID exclude);
 }

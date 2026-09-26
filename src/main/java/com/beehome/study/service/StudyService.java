@@ -108,17 +108,22 @@ public class StudyService {
     }
     private List<StudySessionResponse> sessionResponses(UUID family,List<StudySession> rows) {
         if(rows.isEmpty()) return List.of();
+        var subjectNames = subjects.findByFamilyIdAndIdIn(family, rows.stream().map(StudySession::getSubjectId)
+                .filter(Objects::nonNull).collect(java.util.stream.Collectors.toSet())).stream()
+                .collect(java.util.stream.Collectors.toMap(StudySubject::getId, StudySubject::getName));
         var links=sessionTags.findBySessionIdIn(rows.stream().map(StudySession::getId).toList());
         Map<UUID,TagSummary> summaries=tags.summaries(family,links.stream().map(StudySessionTag::getTagId).collect(java.util.stream.Collectors.toSet()));
         Map<UUID,List<TagSummary>> bySession=new HashMap<>();
         for(var link:links) bySession.computeIfAbsent(link.getSessionId(),_ -> new ArrayList<>()).add(summaries.get(link.getTagId()));
         return rows.stream().map(row -> StudySessionResponse.from(row,bySession.getOrDefault(row.getId(),List.of()).stream()
-                .sorted(Comparator.comparing(TagSummary::name).thenComparing(TagSummary::id)).toList())).toList();
+                .sorted(Comparator.comparing(TagSummary::name).thenComparing(TagSummary::id)).toList(),
+                subjectNames.getOrDefault(row.getSubjectId(), row.getSubjectNameSnapshot()))).toList();
     }
     private StudySessionResponse sessionResponse(StudySession row) { return sessionResponses(row.getFamilyId(),List.of(row)).getFirst(); }
     @Transactional
     public StudySessionResponse start(UUID user, UUID family, UUID member, StudySessionRequest body) {
         members.requireActive(user, family, member, true); body.validateStart();
+        if (body.subjectId() == null) throw new InputException();
         tags.requireTags(user,family,body.tagIds());
         var subject = linkedSubject(family, body.subjectId());
         UUID item = body.dailyExecutionItemId(); linkedItem(family, member, item);
@@ -126,16 +131,21 @@ public class StudyService {
         var date = LocalDate.ofInstant(now, ZoneId.of(families.get(user, family).timezone()));
         var session=StudySession.timer(family, member, subject == null ? null : subject.getId(),
                 subject == null ? null : subject.getName(), item, date, body.title(), body.notes(), user, now);
+        session.details(body.topic(), body.description(), body.comments(), body.material(), body.startPage(), body.endPage(), now);
+        if (body.usesReportFields()) session.reportRecord();
         saveSession(session); replaceSessionTags(user,family,session.getId(),body.tagIds()); return sessionResponse(session);
     }
     @Transactional
     public StudySessionResponse manual(UUID user, UUID family, UUID member, StudySessionRequest body) {
         members.requireActive(user, family, member, true); body.validateManual();
+        if (body.subjectId() == null) throw new InputException();
         tags.requireTags(user,family,body.tagIds());
         var subject = linkedSubject(family, body.subjectId());
         UUID item = body.dailyExecutionItemId(); linkedItem(family, member, item);
         var session=StudySession.manual(family, member, subject == null ? null : subject.getId(),
-                subject == null ? null : subject.getName(), item, body.date(), body.title(), body.notes(), body.durationSeconds(), user, clock.instant());
+                subject == null ? null : subject.getName(), item, body.date(), body.title(), body.notes(), body.finalDurationSeconds(), user, clock.instant());
+        session.details(body.topic(), body.description(), body.comments(), body.material(), body.startPage(), body.endPage(), clock.instant());
+        if (body.usesReportFields()) session.reportRecord();
         saveSession(session); replaceSessionTags(user,family,session.getId(),body.tagIds()); return sessionResponse(session);
     }
     private StudySession session(UUID family, UUID member, UUID id) {
@@ -171,6 +181,9 @@ public class StudyService {
         body.validatePatch();
         if(body.fields().contains("tagIds")) tags.requireTags(user,family,body.tagIds());
         UUID subjectId = body.fields().contains("subjectId") ? body.subjectId() : session.getSubjectId();
+        if (body.fields().contains("subjectId") && subjectId == null) throw new InputException();
+        if (subjectId == null && (body.usesReportFields() || session.isReportRecord()))
+            throw new InputException();
         var subject = body.fields().contains("subjectId") ? linkedSubject(family, subjectId) : null;
         UUID item = body.fields().contains("dailyExecutionItemId") ? body.dailyExecutionItemId() : session.getDailyExecutionItemId();
         linkedItem(family, member, item);
@@ -178,7 +191,14 @@ public class StudyService {
                 item, body.fields().contains("date") ? body.date() : null,
                 body.fields().contains("title") ? body.title() : session.getTitle(),
                 body.fields().contains("notes") ? body.notes() : session.getNotes(),
-                body.fields().contains("durationSeconds") ? body.durationSeconds() : null, clock.instant());
+                body.fields().contains("durationSeconds") || body.fields().contains("durationMinutes") ? body.finalDurationSeconds() : null, clock.instant());
+        session.details(body.fields().contains("topic") ? body.topic() : session.getTopic(),
+                body.fields().contains("description") ? body.description() : session.getDescription(),
+                body.fields().contains("comments") ? body.comments() : session.getComments(),
+                body.fields().contains("material") ? body.material() : session.getMaterial(),
+                body.fields().contains("startPage") ? body.startPage() : session.getStartPage(),
+                body.fields().contains("endPage") ? body.endPage() : session.getEndPage(), clock.instant());
+        if (body.usesReportFields()) session.reportRecord();
         saveSession(session);
         if(body.fields().contains("tagIds")) replaceSessionTags(user,family,id,body.tagIds());
         return sessionResponse(session);
@@ -223,7 +243,7 @@ public class StudyService {
     @Transactional(readOnly = true)
     public List<StudySessionResponse> historyRange(UUID user, UUID family, UUID member, LocalDate from, LocalDate to) {
         members.get(user, family, member);
-        return sessions.range(family, member, from, to).stream().map(StudySessionResponse::from).toList();
+        return sessionResponses(family, sessions.range(family, member, from, to));
     }
     private static void validateRange(LocalDate from, LocalDate to) {
         if (from == null || to == null || from.isAfter(to)) throw new InputException();

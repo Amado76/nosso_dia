@@ -22,10 +22,11 @@ class BeeHomeApplicationTests {
         mvc.perform(get("/api/health")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("UP"));
     }
     @Test void appliesMigrationsToPostgres() {
-        assertEquals(16, jdbc.queryForObject("SELECT count(*) FROM public.flyway_schema_history WHERE success", Integer.class));
+        assertEquals(18, jdbc.queryForObject("SELECT count(*) FROM public.flyway_schema_history WHERE success", Integer.class));
         assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM information_schema.schemata WHERE schema_name = 'beehome'", Integer.class));
         assertEquals(2, jdbc.queryForObject("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'beehome' AND table_name IN ('daily_executions', 'daily_execution_items')", Integer.class));
         assertEquals(2, jdbc.queryForObject("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'beehome' AND table_name IN ('study_subjects', 'study_sessions')", Integer.class));
+        assertEquals(3, jdbc.queryForObject("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'beehome' AND table_name IN ('extracurricular_activities', 'extracurricular_records', 'extracurricular_record_tags')", Integer.class));
         assertEquals(3, jdbc.queryForObject("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'beehome' AND table_name IN ('media', 'photo_records', 'photo_record_media')", Integer.class));
         assertEquals(3, jdbc.queryForObject("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'beehome' AND table_name IN ('books', 'child_books', 'reading_sessions')", Integer.class));
         assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'beehome' AND table_name = 'drawings'", Integer.class));

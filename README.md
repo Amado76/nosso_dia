@@ -64,9 +64,9 @@ extends PDR-07 using the [global family tags model](docs/pdr-11-global-tags-prd.
 PDR-08 provides family books, child reading journeys, sessions, derived progress,
 and period metrics. See the [books and reading integration guide](docs/books-reading.md)
 and [Books and Reading PRD](docs/pdr-08-books-reading-prd.md).
-PDR-09 provides a calendar, child history, and live period reports over
-existing routine, study, reading, and photo records, including paginated reading
-detail and live reading totals. See the [calendar, history, and reports integration guide](docs/calendar-history-reports.md)
+PDR-09 provides a calendar, child history, live period reports, extracurricular activity records, and on-demand daily PDF export over
+routine, study, reading, activity, and photo records. See the [calendar, history, and reports integration guide](docs/calendar-history-reports.md)
+and [extracurricular activities integration guide](docs/extracurricular-activities.md)
 and [Calendar, History, and Reports PRD](docs/pdr-09-calendar-history-reports-prd.md).
 PDR-10 provides editable, vector-based profile scratchpads with cross-device
 synchronization. See the [Profile Scratchpad PRD](docs/pdr-10-profile-scratchpad-prd.md).

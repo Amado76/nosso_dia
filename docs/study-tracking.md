@@ -75,11 +75,10 @@ Start request example:
 {"subjectId":"11111111-1111-4111-8111-111111111111","dailyExecutionItemId":null,"title":"Algebra","notes":"Chapter 3"}
 ```
 
-All start fields are optional or nullable. Manual creation adds required `date`
-and `durationSeconds`: `{"date":"2026-09-21","durationSeconds":1800,"subjectId":null}`.
+Start requires `subjectId`; the other start fields are optional or nullable. Manual creation requires `date` and `subjectId`, and accepts either `durationSeconds` or `durationMinutes`: `{"date":"2026-09-21","durationMinutes":30,"subjectId":"11111111-1111-4111-8111-111111111111","topic":"Fractions"}`. Both duration fields cannot be submitted together. When omitted, duration is unmeasured and the stored seconds value is 0.
 Start and manual creation also accept optional non-null `tagIds`, an array of up
 to 100 unique IDs of tags in the same family. Omission or `[]` starts untagged.
-Duration is an integer from 0 through 31,536,000 seconds. `title` is at most 120
+Legacy seconds duration is an integer from 0 through 31,536,000; `durationMinutes`, when present, is a positive integer up to 525,600. `title` is at most 120
 UTF-16 code units, `notes` at most 10,000; blank text is stored as null. A supplied
 subject must be active and in the family. A supplied execution item must belong
 to the same family and target member; it need not be completed. Multiple sessions
@@ -89,7 +88,7 @@ daily execution item.
 Response example:
 
 ```json
-{"id":"33333333-3333-4333-8333-333333333333","familyId":"22222222-2222-4222-8222-222222222222","familyMemberId":"44444444-4444-4444-8444-444444444444","subjectId":"11111111-1111-4111-8111-111111111111","dailyExecutionItemId":null,"subjectNameSnapshot":"Mathematics","date":"2026-09-21","title":"Algebra","notes":"Chapter 3","entryMode":"TIMER","status":"RUNNING","startedAt":"2026-09-21T12:00:00Z","currentRunStartedAt":"2026-09-21T12:00:00Z","endedAt":null,"accumulatedDurationSeconds":0,"createdByUserId":"55555555-5555-4555-8555-555555555555","createdAt":"2026-09-21T12:00:00Z","updatedAt":"2026-09-21T12:00:00Z","version":0,"tags":[]}
+{"id":"33333333-3333-4333-8333-333333333333","familyId":"22222222-2222-4222-8222-222222222222","familyMemberId":"44444444-4444-4444-8444-444444444444","subjectId":"11111111-1111-4111-8111-111111111111","dailyExecutionItemId":null,"subjectNameSnapshot":"Mathematics","date":"2026-09-21","title":"Algebra","notes":"Chapter 3","entryMode":"TIMER","status":"RUNNING","startedAt":"2026-09-21T12:00:00Z","currentRunStartedAt":"2026-09-21T12:00:00Z","endedAt":null,"accumulatedDurationSeconds":0,"createdByUserId":"55555555-5555-4555-8555-555555555555","createdAt":"2026-09-21T12:00:00Z","updatedAt":"2026-09-21T12:00:00Z","version":0,"tags":[],"subjectName":"Mathematics","topic":null,"description":null,"comments":null,"material":null,"startPage":null,"endPage":null,"durationMinutes":null}
 ```
 
 Every field is present. `subjectId`, `dailyExecutionItemId`, snapshot, title,
@@ -97,8 +96,10 @@ notes, and timer timestamps may be null. Manual sessions have null timer
 timestamps, `entryMode=MANUAL`, and `status=COMPLETED`. The subject name is captured
 at creation and survives renames. The authenticated user supplies
 `createdByUserId`; clients cannot supply actor, status, timer date or timestamps.
-Responses also contain `tags`, an array of `{id,name,color}` with nullable color.
+Responses also contain `tags`, an array of `{id,name,color}` with nullable color. `subjectName` is the current catalog name, while `subjectNameSnapshot` remains the name saved when the session was created. `durationMinutes` is present for completed manual sessions with a positive whole-minute duration; otherwise it is null. `topic`, `description`, `comments`, `material`, `startPage`, and `endPage` are also present and nullable.
 See [global tags](global-tags.md) for the tag management API and validation.
+
+The manual flow lets the client own timing and submit a final `durationMinutes` value. `topic` is record-specific and distinct from the official `StudySubject.name`; `description` records what was done, `comments` observations, and `material` free text. They are trimmed, blank becomes null, and their maximum lengths are 120, 10000, 10000, and 1000 characters respectively. Page endpoints are optional positive integers; either can appear alone, and when both are present `endPage >= startPage`. Invalid values return `400 VALIDATION_ERROR`. Tags classify a session but never define its subject or change subject totals. Historical subjectless study sessions remain readable and correctable, but new start and manual requests require a family `subjectId`. Correction cannot clear an assigned subject.
 
 Timer flow: start → pause → resume → finish, or start → finish, or paused → finish.
 Only running intervals count. Start fixes the date in the family's timezone and
@@ -110,8 +111,8 @@ GET `/current` reads that running session only; a paused session yields 204.
 No background process closes abandoned timers.
 
 PATCH accepts a nonempty subset of `subjectId`, `dailyExecutionItemId`, `title`,
-`notes`, `date`, `durationSeconds`, `tagIds`. Null clears the optional reference and text
-fields. Date and duration require non-null values and are allowed only for
+`notes`, `date`, `durationSeconds`, `durationMinutes`, `topic`, `description`, `comments`, `material`, `startPage`, `endPage`, `tagIds`. Null clears optional references other than `subjectId` and optional text
+fields. Date and legacy `durationSeconds` require non-null values; `durationMinutes: null` clears the optional manual duration. Date and duration edits are allowed only for
 completed manual sessions. Completed timer dates, durations, and timestamps are
 immutable; no administrative timer time reconstruction is defined. PATCH does not
 accept state, actor, or timestamps. Only completed sessions can be corrected.

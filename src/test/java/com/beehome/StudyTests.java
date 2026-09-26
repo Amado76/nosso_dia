@@ -45,6 +45,11 @@ class StudyTests {
                 .content("{\"name\":\"Child\",\"memberType\":\"CHILD\"}"));
         return family + "/members/" + com.jayway.jsonpath.JsonPath.read(json, "$.id");
     }
+    String subject(UUID user, String family) throws Exception {
+        String json = call(user, post(family + "/study-subjects").contentType("application/json")
+                .content("{\"name\":\"General\"}"));
+        return com.jayway.jsonpath.JsonPath.read(json, "$.id");
+    }
 
     @Test void createsAndListsNormalizedSubjectsForFamilyMembers() throws Exception {
         UUID user = user();
@@ -61,14 +66,14 @@ class StudyTests {
 
     @Test void timerCountsOnlyRunningIntervalsAndSummaryExcludesVoidedSessions() throws Exception {
         UUID user = user(); String family = family(user), member = member(user, family);
-        String base = member + "/study-sessions";
+        String base = member + "/study-sessions", subject = subject(user, family);
         String start = mvc.perform(post(base + "/start").with(jwt().jwt(j -> j.subject(user.toString())))
-                .contentType("application/json").content("{}"))
+                .contentType("application/json").content("{\"subjectId\":\"" + subject + "\"}"))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.date").value("2026-09-21"))
                 .andExpect(jsonPath("$.status").value("RUNNING")).andReturn().getResponse().getContentAsString();
         String id = com.jayway.jsonpath.JsonPath.read(start, "$.id");
         mvc.perform(post(base + "/start").with(jwt().jwt(j -> j.subject(user.toString())))
-                .contentType("application/json").content("{}"))
+                .contentType("application/json").content("{\"subjectId\":\"" + subject + "\"}"))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("STUDY_CONFLICT"));
         at("2026-09-21T15:10:00Z");
         mvc.perform(post(base + "/" + id + "/pause").with(jwt().jwt(j -> j.subject(user.toString()))))
@@ -82,7 +87,7 @@ class StudyTests {
         String query = "?from=2026-09-21&to=2026-09-21";
         mvc.perform(get(member + "/study-summary" + query).with(jwt().jwt(j -> j.subject(user.toString()))))
                 .andExpect(jsonPath("$.totalDurationSeconds").value(900))
-                .andExpect(jsonPath("$.subjects.length()").value(0));
+                .andExpect(jsonPath("$.subjects.length()").value(1));
         mvc.perform(post(base + "/" + id + "/void").with(jwt().jwt(j -> j.subject(user.toString()))))
                 .andExpect(status().isOk());
         mvc.perform(get(member + "/study-summary" + query).with(jwt().jwt(j -> j.subject(user.toString()))))
@@ -95,9 +100,9 @@ class StudyTests {
         UUID owner = user(), reader = user(); String family = family(owner), member = member(owner, family);
         jdbc.update("insert into beehome.family_memberships(id,family_id,user_id,role,created_at) values (?, ?, ?, 'MEMBER', now())",
                 UUID.randomUUID(), UUID.fromString(family.substring(family.lastIndexOf('/') + 1)), reader);
-        String base = member + "/study-sessions";
+        String base = member + "/study-sessions", subject = subject(owner, family);
         String json = mvc.perform(post(base).with(jwt().jwt(j -> j.subject(reader.toString())))
-                .contentType("application/json").content("{\"date\":\"2026-09-20\",\"durationSeconds\":120}"))
+                .contentType("application/json").content("{\"date\":\"2026-09-20\",\"durationSeconds\":120,\"subjectId\":\"" + subject + "\"}"))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.createdByUserId").value(reader.toString()))
                 .andReturn().getResponse().getContentAsString();
         String id = com.jayway.jsonpath.JsonPath.read(json, "$.id");
@@ -108,7 +113,7 @@ class StudyTests {
                 .contentType("application/json").content("{\"durationSeconds\":180}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.accumulatedDurationSeconds").value(180));
         String timer = mvc.perform(post(base + "/start").with(jwt().jwt(j -> j.subject(owner.toString())))
-                .contentType("application/json").content("{}"))
+                .contentType("application/json").content("{\"subjectId\":\"" + subject + "\"}"))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         String timerId = com.jayway.jsonpath.JsonPath.read(timer, "$.id");
         mvc.perform(post(base + "/" + timerId + "/finish").with(jwt().jwt(j -> j.subject(owner.toString()))))
@@ -162,14 +167,14 @@ class StudyTests {
                 execution, familyId, otherId);
         jdbc.update("insert into beehome.daily_execution_items(id,execution_id,source_type,title,sort_order,status,created_at,updated_at) values (?, ?, 'DAILY_PLAN', 'Reading', 0, 'PENDING', now(), now())",
                 item, execution);
-        String base = member + "/study-sessions";
+        String base = member + "/study-sessions", subject = subject(owner, family);
         at("2026-09-22T02:59:59Z");
         mvc.perform(post(base + "/start").with(jwt().jwt(j -> j.subject(owner.toString())))
-                .contentType("application/json").content("{\"dailyExecutionItemId\":\"" + item + "\"}"))
+                .contentType("application/json").content("{\"dailyExecutionItemId\":\"" + item + "\",\"subjectId\":\"" + subject + "\"}"))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("STUDY_EXECUTION_ITEM_NOT_FOUND"));
         String otherBase = other + "/study-sessions";
         String session = mvc.perform(post(otherBase + "/start").with(jwt().jwt(j -> j.subject(owner.toString())))
-                .contentType("application/json").content("{\"dailyExecutionItemId\":\"" + item + "\"}"))
+                .contentType("application/json").content("{\"dailyExecutionItemId\":\"" + item + "\",\"subjectId\":\"" + subject + "\"}"))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.date").value("2026-09-21"))
                 .andReturn().getResponse().getContentAsString();
         String id = com.jayway.jsonpath.JsonPath.read(session, "$.id");
@@ -184,12 +189,13 @@ class StudyTests {
     @Test void concurrentStartsLeaveOnlyOneRunningSession() throws Exception {
         UUID owner = user(); String family = family(owner), member = member(owner, family);
         String route = member + "/study-sessions/start";
+        String subject = subject(owner, family);
         CountDownLatch ready = new CountDownLatch(2), go = new CountDownLatch(1);
         try (ExecutorService workers = Executors.newFixedThreadPool(2)) {
             Callable<Integer> start = () -> {
                 ready.countDown(); go.await();
                 return mvc.perform(post(route).with(jwt().jwt(j -> j.subject(owner.toString())))
-                        .contentType("application/json").content("{}"))
+                        .contentType("application/json").content("{\"subjectId\":\"" + subject + "\"}"))
                         .andReturn().getResponse().getStatus();
             };
             Future<Integer> first = workers.submit(start), second = workers.submit(start);
@@ -205,7 +211,8 @@ class StudyTests {
         String firstId = com.jayway.jsonpath.JsonPath.read(current, "$.id");
         mvc.perform(post(member + "/study-sessions/" + firstId + "/pause")
                 .with(jwt().jwt(j -> j.subject(owner.toString())))).andExpect(status().isOk());
-        String secondSession = call(owner, post(route).contentType("application/json").content("{}"));
+        String secondSession = call(owner, post(route).contentType("application/json")
+                .content("{\"subjectId\":\"" + subject + "\"}"));
         String secondId = com.jayway.jsonpath.JsonPath.read(secondSession, "$.id");
         mvc.perform(post(member + "/study-sessions/" + secondId + "/pause")
                 .with(jwt().jwt(j -> j.subject(owner.toString())))).andExpect(status().isOk());
@@ -297,8 +304,9 @@ class StudyTests {
         UUID owner = user(), reader = user(); String family = family(owner), member = member(owner, family);
         jdbc.update("insert into beehome.family_memberships(id,family_id,user_id,role,created_at) values (?, ?, ?, 'MEMBER', now())",
                 UUID.randomUUID(), UUID.fromString(family.substring(family.lastIndexOf('/') + 1)), reader);
-        String base = member + "/study-sessions";
-        String started = call(owner, post(base + "/start").contentType("application/json").content("{}"));
+        String base = member + "/study-sessions", subject = subject(owner, family);
+        String started = call(owner, post(base + "/start").contentType("application/json")
+                .content("{\"subjectId\":\"" + subject + "\"}"));
         String id = com.jayway.jsonpath.JsonPath.read(started, "$.id");
         at("2027-09-21T15:00:01Z");
         mvc.perform(post(base + "/" + id + "/void").with(jwt().jwt(j -> j.subject(reader.toString()))))
@@ -312,7 +320,7 @@ class StudyTests {
         mvc.perform(get(base + "/current").with(jwt().jwt(j -> j.subject(owner.toString()))))
                 .andExpect(status().isNoContent());
         mvc.perform(post(base + "/start").with(jwt().jwt(j -> j.subject(owner.toString())))
-                .contentType("application/json").content("{}"))
+                .contentType("application/json").content("{\"subjectId\":\"" + subject + "\"}"))
                 .andExpect(status().isCreated());
     }
 }

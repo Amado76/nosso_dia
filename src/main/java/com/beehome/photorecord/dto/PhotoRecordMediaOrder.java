@@ -7,5 +7,5 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(requiredProperties="mediaIds")
 public record PhotoRecordMediaOrder(
-        @ArraySchema(minItems=1,maxItems=20,schema=@Schema(description="Unique image media ID in display order"))
+        @ArraySchema(minItems=1,maxItems=4,schema=@Schema(description="Unique image media ID in display order"))
         List<UUID> mediaIds) {}

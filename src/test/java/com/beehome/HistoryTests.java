@@ -72,6 +72,14 @@ class HistoryTests {
         mvc.perform(get(base + "/history/2026-09-20").with(jwt().jwt(j -> j.subject(owner.toString()))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.date").value("2026-09-20"))
                 .andExpect(jsonPath("$.studies.length()").value(0));
+        byte[] emptyPdf = mvc.perform(get(base + "/history/2026-09-20/pdf")
+                .with(jwt().jwt(j -> j.subject(owner.toString()))))
+                .andExpect(status().isOk()).andExpect(content().contentType("application/pdf"))
+                .andReturn().getResponse().getContentAsByteArray();
+        try (var document = org.apache.pdfbox.Loader.loadPDF(emptyPdf)) {
+            org.assertj.core.api.Assertions.assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(document))
+                    .contains("Child", "2026-09-20").doesNotContain("Studies", "Photos");
+        }
         mvc.perform(get(base + "/calendar?year=2026&month=9").with(jwt().jwt(j -> j.subject(owner.toString()))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.days.length()").value(0));
         mvc.perform(get(base + "/history/2026-09-20")).andExpect(status().isUnauthorized());
@@ -100,8 +108,12 @@ class HistoryTests {
                 .andExpect(status().isCreated());
         mvc.perform(put(member + "/executions/2026-09-21").with(jwt().jwt(j -> j.subject(owner.toString()))))
                 .andExpect(status().isOk());
+        String subjectJson = mvc.perform(post(family + "/study-subjects").with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content("{\"name\":\"General\"}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String subjectId = com.jayway.jsonpath.JsonPath.read(subjectJson, "$.id");
         mvc.perform(post(member + "/study-sessions").with(jwt().jwt(j -> j.subject(owner.toString())))
-                .contentType("application/json").content("{\"date\":\"2026-09-21\",\"durationSeconds\":120}"))
+                .contentType("application/json").content("{\"date\":\"2026-09-21\",\"durationSeconds\":120,\"subjectId\":\"" + subjectId + "\"}"))
                 .andExpect(status().isCreated());
         byte[] png = java.util.Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=");
         String upload = mvc.perform(multipart(family + "/media").file(new MockMultipartFile("file", "history.png", "image/png", png))
@@ -113,8 +125,18 @@ class HistoryTests {
                 .andExpect(status().isCreated());
         mvc.perform(get(base + "/history/2026-09-20").with(jwt().jwt(j -> j.subject(owner.toString()))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.photos[0].media[0].id").value(mediaId))
-                .andExpect(jsonPath("$.photos[0].description").doesNotExist())
-                .andExpect(jsonPath("$.photos[0].date").doesNotExist());
+                .andExpect(jsonPath("$.photos[0].date").value("2026-09-20"));
+        byte[] pdf = mvc.perform(get(base + "/history/2026-09-20/pdf")
+                .with(jwt().jwt(j -> j.subject(owner.toString()))))
+                .andExpect(status().isOk()).andExpect(content().contentType("application/pdf"))
+                .andReturn().getResponse().getContentAsByteArray();
+        try (var document = org.apache.pdfbox.Loader.loadPDF(pdf)) {
+            boolean hasImage = false;
+            for (var page : document.getPages())
+                for (var name : page.getResources().getXObjectNames())
+                    hasImage |= page.getResources().getXObject(name) instanceof org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+            org.assertj.core.api.Assertions.assertThat(hasImage).isTrue();
+        }
         mvc.perform(get(base + "/calendar?year=2026&month=9").with(jwt().jwt(j -> j.subject(owner.toString()))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.days.length()").value(2))
                 .andExpect(jsonPath("$.days[0].hasPhotos").value(true))
@@ -153,9 +175,13 @@ class HistoryTests {
         String family = base.substring(0, base.indexOf("/children"));
         String childId = base.substring(base.lastIndexOf('/') + 1);
         String member = family + "/members/" + childId;
+        String subjectJson = mvc.perform(post(family + "/study-subjects").with(jwt().jwt(j -> j.subject(owner.toString())))
+                .contentType("application/json").content("{\"name\":\"General\"}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String subjectId = com.jayway.jsonpath.JsonPath.read(subjectJson, "$.id");
         org.mockito.Mockito.when(clock.instant()).thenReturn(java.time.Instant.parse("2026-09-21T02:59:59Z"));
         mvc.perform(post(member + "/study-sessions/start").with(jwt().jwt(j -> j.subject(owner.toString())))
-                .contentType("application/json").content("{}"))
+                .contentType("application/json").content("{\"subjectId\":\"" + subjectId + "\"}"))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.date").value("2026-09-20"));
         mvc.perform(get(base + "/calendar?year=2026&month=9").with(jwt().jwt(j -> j.subject(owner.toString()))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.days[0].date").value("2026-09-20"));
