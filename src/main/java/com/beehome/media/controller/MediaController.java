@@ -30,6 +30,8 @@ public class MediaController {
                     "Exceeding any limit, including multipart parsing limits, returns 400 MEDIA_TOO_LARGE.")
     @ApiResponse(responseCode="201", description="Media metadata", content=@Content(schema=@Schema(implementation=MediaResponse.class)))
     @ApiResponse(responseCode="400", description="Invalid or oversized image")
+    @ApiResponse(responseCode="409", description="Family media storage quota exceeded")
+    @ApiResponse(responseCode="429", description="Upload rate limit exceeded")
     @ApiResponse(responseCode="500", description="Private storage failure")
     public MediaResponse upload(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID familyId,
             @RequestPart("file") MultipartFile file) { return service.upload(user(jwt),familyId,file); }

@@ -9,5 +9,6 @@ public final class MediaException extends ApiException {
     public static MediaException inUse() { return new MediaException(HttpStatus.CONFLICT, "MEDIA_IN_USE", "in-use"); }
     public static MediaException invalidType() { return new MediaException(HttpStatus.BAD_REQUEST, "MEDIA_INVALID_TYPE", "invalid-type"); }
     public static MediaException tooLarge() { return new MediaException(HttpStatus.BAD_REQUEST, "MEDIA_TOO_LARGE", "too-large"); }
+    public static MediaException quotaExceeded() { return new MediaException(HttpStatus.CONFLICT, "MEDIA_QUOTA_EXCEEDED", "quota-exceeded"); }
     public static MediaException failed() { return new MediaException(HttpStatus.INTERNAL_SERVER_ERROR, "MEDIA_UPLOAD_FAILED", "failed"); }
 }

@@ -10,12 +10,14 @@ import com.beehome.photorecord.repository.PhotoRecordMediaRepository;
 import com.beehome.shared.exception.InputException;
 import java.io.IOException;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.UUID;
 import org.slf4j.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
@@ -30,11 +32,20 @@ public class MediaService {
     private final TransactionTemplate transactions;
     private final Clock clock;
     private final long maxBytes;
+    private final long familyQuotaBytes;
+    private final Duration unattachedRetention;
     public MediaService(MediaRepository media, PhotoRecordMediaRepository links, FamilyAuthorizationService authorization,
             MediaStorage storage, TransactionTemplate transactions, Clock clock,
-            @Value("${media.max-bytes:10485760}") long maxBytes) {
+            @Value("${media.max-bytes:10485760}") long maxBytes,
+            @Value("${media.family-quota-bytes:52428800}") long familyQuotaBytes,
+            @Value("${media.unattached-retention:24h}") Duration unattachedRetention) {
         this.media=media; this.links=links; this.authorization=authorization; this.storage=storage;
         this.transactions=transactions; this.clock=clock; this.maxBytes=maxBytes;
+        if (familyQuotaBytes <= 0) throw new IllegalArgumentException("media.family-quota-bytes must be positive");
+        if (unattachedRetention.isNegative() || unattachedRetention.isZero())
+            throw new IllegalArgumentException("media.unattached-retention must be positive");
+        this.familyQuotaBytes=familyQuotaBytes;
+        this.unattachedRetention=unattachedRetention;
     }
     public MediaResponse upload(UUID user, UUID family, MultipartFile file) {
         authorization.requireMembership(user, family);
@@ -53,8 +64,14 @@ public class MediaService {
         catch (IOException e) { log.warn("Media storage failed for {}", id); throw MediaException.failed(); }
         try {
             String finalFilename=filename;
-            return transactions.execute(status -> MediaResponse.from(media.saveAndFlush(
-                    new Media(id, family, user, key, finalFilename, mime, bytes.length, clock.instant()))));
+            return transactions.execute(status -> {
+                authorization.lockFamily(family);
+                long used = media.totalBytes(family);
+                if (bytes.length > familyQuotaBytes || used > familyQuotaBytes - bytes.length)
+                    throw MediaException.quotaExceeded();
+                return MediaResponse.from(media.saveAndFlush(
+                        new Media(id, family, user, key, finalFilename, mime, bytes.length, clock.instant())));
+            });
         } catch (RuntimeException e) {
             try { storage.delete(key); } catch (IOException cleanup) { log.warn("Media cleanup failed for {}", id); }
             throw e;
@@ -90,5 +107,26 @@ public class MediaService {
         catch (IOException e) { log.warn("Media deletion failed for {}", id); throw MediaException.failed(); }
         media.delete(item);
         media.flush();
+    }
+
+    @Scheduled(fixedDelayString="${media.cleanup-interval-ms:3600000}", initialDelayString="${media.cleanup-interval-ms:3600000}")
+    public void cleanupUnused() {
+        var cutoff = clock.instant().minus(unattachedRetention);
+        var candidates = media.oldUnattached(cutoff, PageRequest.of(0, 100)).getContent();
+        for (var candidate : candidates) {
+            try {
+                transactions.executeWithoutResult(status -> {
+                    var item = media.lock(candidate.getFamilyId(), candidate.getId()).orElse(null);
+                    if (item == null || !item.getCreatedAt().isBefore(cutoff) || links.existsByMediaId(item.getId())
+                            || media.usedAsBookCover(item.getId())) return;
+                    try { storage.delete(item.getStorageKey()); }
+                    catch (IOException e) { throw MediaException.failed(); }
+                    media.delete(item);
+                    media.flush();
+                });
+            } catch (RuntimeException e) {
+                log.warn("Unused media cleanup failed for {}", candidate.getId());
+            }
+        }
     }
 }

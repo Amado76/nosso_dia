@@ -7,6 +7,12 @@ import org.springframework.data.domain.*;
 import org.springframework.data.jpa.repository.*;
 
 public interface MediaRepository extends JpaRepository<Media, UUID> {
+    @Query("select coalesce(sum(m.sizeBytes), 0) from Media m where m.familyId = :familyId")
+    long totalBytes(UUID familyId);
+    @Query("select m from Media m where m.createdAt < :cutoff and not exists " +
+            "(select l.id from PhotoRecordMedia l where l.mediaId = m.id) and not exists " +
+            "(select b.id from Book b where b.coverMediaId = m.id) order by m.createdAt asc, m.id asc")
+    Slice<Media> oldUnattached(java.time.Instant cutoff, Pageable page);
     @Query(value="select exists(select 1 from beehome.books where cover_media_id=:id)",nativeQuery=true)
     boolean usedAsBookCover(UUID id);
     Optional<Media> findByFamilyIdAndId(UUID familyId, UUID id);

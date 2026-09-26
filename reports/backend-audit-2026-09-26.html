@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>BeeHome backend audit — 26 September 2026</title>
+  <style>
+    :root { --ink:#17243a; --muted:#526078; --line:#d9e2ed; --page:#f4f7fb; --card:#fff; --navy:#17324f; --blue:#dceafa; --red:#a63432; --amber:#9a610d; --green:#16714f; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; background:var(--page); color:var(--ink); font:16px/1.48 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    a { color:#115b9e; text-underline-offset:2px; }
+    a:hover { color:#09395f; }
+    header { background:linear-gradient(130deg,#122c49,#245579); color:white; padding:2.4rem max(1.25rem,calc((100vw - 1120px)/2)); }
+    header p { max-width:760px; color:#e1eaf3; margin:.55rem 0 0; }
+    h1 { font-size:clamp(1.9rem,4vw,3rem); letter-spacing:-.035em; line-height:1.1; margin:0; }
+    h2 { font-size:1.48rem; letter-spacing:-.02em; margin:0 0 .8rem; }
+    h3 { font-size:1.05rem; margin:0 0 .45rem; }
+    main { max-width:1160px; padding:1.5rem 1.25rem 4rem; margin:auto; }
+    .eyebrow { text-transform:uppercase; letter-spacing:.14em; font-weight:750; font-size:.72rem; color:#a8d2f4; margin:0 0 .7rem; }
+    .meta { display:flex; gap:.65rem; flex-wrap:wrap; margin-top:1.4rem; }
+    .meta span { border:1px solid #6c91af; border-radius:99px; padding:.25rem .7rem; font-size:.83rem; color:#f2f6fa; }
+    .summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.8rem; margin:-.95rem 0 2rem; position:relative; }
+    .metric, .panel, .finding { background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:0 5px 24px #163a6010; }
+    .metric { padding:1rem 1.2rem; }
+    .metric strong { display:block; font-size:1.55rem; letter-spacing:-.04em; line-height:1.2; }
+    .metric span { color:var(--muted); font-size:.83rem; }
+    .panel { padding:1.25rem 1.4rem; margin:1.25rem 0; }
+    .lede { font-size:1.08rem; max-width:850px; }
+    .notice { border-left:4px solid #286d9c; padding:.7rem 1rem; background:#eaf4fc; border-radius:0 8px 8px 0; }
+    .toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; margin:1rem 0; }
+    .toolbar button { cursor:pointer; font:inherit; font-size:.88rem; color:#24405a; background:white; border:1px solid #bcccdc; border-radius:999px; padding:.4rem .8rem; }
+    .toolbar button[aria-pressed="true"] { background:var(--navy); border-color:var(--navy); color:white; }
+    .toolbar .count { color:var(--muted); margin-left:auto; font-size:.85rem; }
+    .findings { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.9rem; }
+    .finding { padding:1.1rem 1.2rem; border-left:5px solid #647a91; }
+    .finding.high { border-left-color:var(--red); }
+    .finding.medium { border-left-color:var(--amber); }
+    .finding.low { border-left-color:var(--green); }
+    .finding[hidden] { display:none; }
+    .labels { display:flex; flex-wrap:wrap; gap:.4rem; margin-bottom:.65rem; }
+    .tag { display:inline-block; border-radius:99px; padding:.2rem .55rem; font-size:.71rem; font-weight:750; letter-spacing:.025em; text-transform:uppercase; background:#e9eef4; color:#3d536b; }
+    .tag.high { color:#822522; background:#fbe8e7; }
+    .tag.medium { color:#80500c; background:#fff0d9; }
+    .tag.low { color:#0e6143; background:#dff5eb; }
+    .finding p { margin:.45rem 0; }
+    .finding .detail { color:var(--muted); font-size:.9rem; }
+    .finding .action { border-top:1px solid var(--line); padding-top:.55rem; margin-top:.75rem; }
+    .finding .source { font-size:.83rem; margin-top:.7rem; overflow-wrap:anywhere; }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
+    ul { padding-left:1.3rem; margin:.45rem 0; }
+    li { margin:.3rem 0; }
+    code { background:#edf1f5; border-radius:4px; padding:.1em .27em; font-size:.9em; }
+    .status { display:inline-block; font-size:.75rem; font-weight:750; border-radius:99px; padding:.24rem .65rem; background:#e8f6ee; color:#0b6842; }
+    footer { color:var(--muted); font-size:.84rem; padding-top:1rem; }
+    @media (max-width:750px) { .summary { grid-template-columns:repeat(2,1fr); } .findings,.grid { grid-template-columns:1fr; } .toolbar .count { width:100%; margin:.35rem 0 0; } }
+    @media print { body { background:white; } header { background:white; color:var(--ink); padding:1rem 0; } header p,.eyebrow { color:var(--muted); } main { padding:0; } .toolbar { display:none; } .finding { break-inside:avoid; } .summary { margin:1rem 0; } a { color:inherit; } }
+  </style>
+</head>
+<body>
+  <header>
+    <p class="eyebrow">Independent backend review · 26 September 2026</p>
+    <h1>BeeHome backend audit</h1>
+    <p>Security, performance, architecture, and API quality findings. Source links point to the reviewed checkout; this file contains all styling and behavior it needs.</p>
+    <div class="meta"><span>Commit 02087f2</span><span>Branch main</span><span>Static review + API verification</span></div>
+  </header>
+  <main>
+    <section class="summary" aria-label="Summary">
+      <div class="metric"><strong>4</strong><span>Independent reviews</span></div>
+      <div class="metric"><strong>4</strong><span>High priority findings</span></div>
+      <div class="metric"><strong>222</strong><span>Passing tests; no API failures reproduced</span></div>
+      <div class="metric"><strong>65%</strong><span>Highest estimated security risk</span></div>
+    </section>
+
+    <section class="panel">
+      <h2>Executive summary</h2>
+      <p class="lede">The most urgent availability risks are repeatable uploads without a storage quota, reading a drawing request fully into memory before enforcing its size limit, and generating daily PDFs from unbounded data in memory. Media deletion also crosses the database and filesystem without an atomic commit boundary.</p>
+      <p class="notice"><strong>How to read the percentages:</strong> Security percentages are subjective relative risk estimates for prioritization, combining exploitability and impact. They are not measured incident probabilities. Exposure changes with deployment controls, traffic, and account compromise.</p>
+    </section>
+
+    <section aria-labelledby="findings-title">
+      <h2 id="findings-title">Prioritized findings</h2>
+      <div class="toolbar" role="group" aria-label="Filter findings">
+        <button type="button" data-filter="all" aria-pressed="true">All</button>
+        <button type="button" data-filter="security" aria-pressed="false">Security</button>
+        <button type="button" data-filter="performance" aria-pressed="false">Performance</button>
+        <button type="button" data-filter="architecture" aria-pressed="false">Architecture</button>
+        <button type="button" data-filter="qa" aria-pressed="false">QA</button>
+        <span class="count" id="finding-count" aria-live="polite">11 findings</span>
+      </div>
+      <div class="findings" id="findings">
+        <article class="finding high" data-area="security" id="storage-quota"><div class="labels"><span class="tag high">High</span><span class="tag">Security</span><span class="tag">65% relative risk</span></div><h3>Repeated valid uploads can exhaust storage</h3><p>A family member can upload separate valid images up to 10 MiB each. There is no account or family quota, upload rate limit, or automatic cleanup of unattached media in the reviewed code.</p><p class="detail"><strong>Trigger:</strong> an authenticated family member repeats uploads; impact depends on disk capacity and ingress controls.</p><p class="action"><strong>Action:</strong> add a bounded storage quota, lifecycle cleanup for unused objects, and ingress rate limits; test quota races.</p><p class="source"><a href="../src/main/java/com/beehome/media/service/MediaService.java#L39">MediaService.java:39–57</a> · <a href="../src/main/java/com/beehome/auth/security/AuthRateLimitFilter.java#L22">AuthRateLimitFilter.java:22–23</a></p></article>
+        <article class="finding high" data-area="performance security" id="drawing-body"><div class="labels"><span class="tag high">High</span><span class="tag">Performance · Security</span><span class="tag">45% relative security risk</span></div><h3>Drawing size is checked after request allocation</h3><p>The controller binds JSON to <code>byte[]</code>; only then does the validator reject bodies over 5 MiB. The multipart request setting does not cover this JSON endpoint.</p><p class="detail"><strong>Trigger:</strong> large or concurrent drawing PUTs by a permitted editor; heap pressure occurs before the 413 response.</p><p class="action"><strong>Action:</strong> enforce a byte limit while reading the HTTP body, before binding it to an array.</p><p class="source"><a href="../src/main/java/com/beehome/drawing/controller/DrawingController.java#L40">DrawingController.java:40–48</a> · <a href="../src/main/java/com/beehome/drawing/service/DrawingDocumentValidator.java#L36">DrawingDocumentValidator.java:36–37</a> · <a href="../src/main/resources/application.properties#L47">application.properties:47–48</a></p></article>
+        <article class="finding high" data-area="performance" id="pdf-memory"><div class="labels"><span class="tag high">High</span><span class="tag">Performance</span></div><h3>Daily PDFs accumulate unbounded data in memory</h3><p>Report assembly walks every reading page and loads other daily sources. Rendering holds the PDF document and output in memory, then returns a complete byte array.</p><p class="detail"><strong>Trigger:</strong> data-heavy days or concurrent report requests; no load test established the failure threshold.</p><p class="action"><strong>Action:</strong> set an explicit report budget, reduce embedded image size, and measure whether streaming or background generation is needed.</p><p class="source"><a href="../src/main/java/com/beehome/history/service/HistoryService.java#L71">HistoryService.java:71–86</a> · <a href="../src/main/java/com/beehome/history/pdf/DailyReportPdfRenderer.java#L24">DailyReportPdfRenderer.java:24</a> · <a href="../src/main/java/com/beehome/history/controller/HistoryController.java#L44">HistoryController.java:44–53</a></p></article>
+        <article class="finding high" data-area="architecture performance qa" id="media-delete"><div class="labels"><span class="tag high">High · conditional</span><span class="tag">Architecture · Performance · QA</span></div><h3>Media deletion spans a database transaction and filesystem I/O</h3><p>The service deletes the file before its database transaction commits. A later commit failure could leave a database row referencing a missing file; slow storage also holds the row lock and connection longer.</p><p class="detail"><strong>Condition:</strong> a failure after external deletion or slow disk. This is a conditional integrity risk, not a reproduced failure. Existing tests cover normal deletion and in-use conflicts, but not a commit failure.</p><p class="action"><strong>Action:</strong> design a recoverable pending-delete/after-commit flow with retry or compensation, then test commit failure. Preserve the existing pessimistic locking order.</p><p class="source"><a href="../src/main/java/com/beehome/media/service/MediaService.java#L84">MediaService.java:84–93</a> · <a href="../src/test/java/com/beehome/PhotoMediaTests.java#L221">PhotoMediaTests.java:221–244</a></p></article>
+        <article class="finding medium" data-area="performance" id="upload-memory"><div class="labels"><span class="tag medium">Medium</span><span class="tag">Performance</span></div><h3>Concurrent image validation has a substantial memory cost</h3><p>Uploads are copied into byte arrays and decoded at up to 16,777,216 pixels. A full-size bitmap alone can occupy roughly 64 MiB, before input buffers and decoder overhead.</p><p class="detail"><strong>Trigger:</strong> several maximum-size uploads validated at once.</p><p class="action"><strong>Action:</strong> set concurrency and pixel budgets from load tests, and monitor heap and upload latency.</p><p class="source"><a href="../src/main/java/com/beehome/media/service/MediaService.java#L39">MediaService.java:39–52</a> · <a href="../src/main/java/com/beehome/media/storage/ImageValidation.java#L9">ImageValidation.java:9–25, 125–148</a></p></article>
+        <article class="finding medium" data-area="architecture" id="feature-coupling"><div class="labels"><span class="tag medium">Medium</span><span class="tag">Architecture</span></div><h3>Media and photo records reach into each other's repositories</h3><p>Both features access the other's persistence types; the media repository also queries photo and book tables. Rules or schema changes can require coordinated edits across features.</p><p class="detail"><strong>Effect:</strong> maintenance coupling and risk of bypassing a feature's own rules.</p><p class="action"><strong>Action:</strong> expose focused operations from the owning services while preserving lock order; avoid a generic abstraction.</p><p class="source"><a href="../src/main/java/com/beehome/media/service/MediaService.java#L27">MediaService.java:27, 88</a> · <a href="../src/main/java/com/beehome/photorecord/service/PhotoRecordService.java#L25">PhotoRecordService.java:25, 37–41</a> · <a href="../src/main/java/com/beehome/media/repository/MediaRepository.java#L10">MediaRepository.java:10–18</a></p></article>
+        <article class="finding medium" data-area="security" id="token-revocation"><div class="labels"><span class="tag medium">Medium</span><span class="tag">Security</span><span class="tag">35% relative risk</span></div><h3>Existing access JWTs survive logout and password reset</h3><p>Refresh tokens are revoked, but an already issued access JWT remains usable until its configured expiry, 15 minutes by default. This behavior is documented.</p><p class="detail"><strong>Condition:</strong> an attacker already holds a valid access JWT.</p><p class="action"><strong>Action:</strong> if immediate revocation is required, check a server-side session or user version on protected requests.</p><p class="source"><a href="../src/main/java/com/beehome/auth/service/TokenService.java#L51">TokenService.java:51–55</a> · <a href="../src/main/java/com/beehome/auth/service/PasswordResetService.java#L67">PasswordResetService.java:67–83</a> · <a href="../docs/authentication.md#L154">authentication.md:154–158</a></p></article>
+        <article class="finding medium" data-area="security" id="auth-limiter"><div class="labels"><span class="tag medium">Medium · conditional</span><span class="tag">Security</span><span class="tag">30% relative risk</span></div><h3>Authentication rate limits are process-local and IP-based</h3><p>The fixed-window counter is held in one process and uses the remote IP. Several replicas do not share counters, while clients behind one proxy may share a bucket. The deployment documentation calls for coordinated ingress protection.</p><p class="detail"><strong>Condition:</strong> multiple instances, distributed requests, or shared source IPs without suitable edge controls.</p><p class="action"><strong>Action:</strong> verify proxy identity and deploy a coordinated ingress limit; retain the bounded local limiter as defense in depth.</p><p class="source"><a href="../src/main/java/com/beehome/auth/security/AuthRateLimitFilter.java#L11">AuthRateLimitFilter.java:11–47</a> · <a href="../docs/authentication.md#L451">authentication.md:451–455</a></p></article>
+        <article class="finding low" data-area="architecture" id="planning-query"><div class="labels"><span class="tag low">Low</span><span class="tag">Architecture</span></div><h3>Daily planning reads routine persistence details directly</h3><p>The planning service uses routine repositories to assemble a read model. The intent is documented in code and does not appear to bypass a write rule, but it ties planning to the routine schema.</p><p class="detail"><strong>Condition:</strong> routine storage or mapping changes grow more complex.</p><p class="action"><strong>Action:</strong> keep the current simple read path; if the integration expands, expose a focused routine-owned projection.</p><p class="source"><a href="../src/main/java/com/beehome/dailyplan/service/DailyPlanService.java#L154">DailyPlanService.java:154–170</a></p></article>
+        <article class="finding low" data-area="performance" id="deep-pagination"><div class="labels"><span class="tag low">Low · potential</span><span class="tag">Performance</span></div><h3>Deep offset pagination can waste database work</h3><p>Reading lists allow page offsets close to the integer limit. PostgreSQL still advances through skipped rows, so a very deep page may consume CPU and I/O even with a small response.</p><p class="detail"><strong>Condition:</strong> large histories or repeated deep page requests; no query plan or latency regression was measured.</p><p class="action"><strong>Action:</strong> cap practical page depth, or use a cursor over the stable date and ID order if large histories require deep navigation.</p><p class="source"><a href="../src/main/java/com/beehome/reading/service/ReadingService.java#L54">ReadingService.java:54–56, 193–199</a> · <a href="../src/main/java/com/beehome/reading/repository/ReadingSessionRepository.java#L9">ReadingSessionRepository.java:9–10</a></p></article>
+        <article class="finding low" data-area="performance" id="photo-search"><div class="labels"><span class="tag low">Low · potential</span><span class="tag">Performance</span></div><h3>Photo text and tag filters may become expensive</h3><p>The history query searches a lowercase description by substring and computes a correlated tag count. Its cost may rise with family history size.</p><p class="detail"><strong>Condition:</strong> large photo histories with frequent text or tag searches; no execution plan or benchmark was collected.</p><p class="action"><strong>Action:</strong> run <code>EXPLAIN ANALYZE</code> on representative data before considering a trigram index or query change.</p><p class="source"><a href="../src/main/java/com/beehome/photorecord/repository/PhotoRecordRepository.java#L15">PhotoRecordRepository.java:15–21</a></p></article>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="panel"><h2>What is working well</h2><ul><li>Nonpublic routes require authentication by default; JWT verification checks signature, issuer, audience, and expiry.</li><li>Family membership checks protect private resource access. Refresh and reset secrets are stored as hashes.</li><li>Feature packages follow responsibility-based subpackages; controllers generally delegate to services, and the history feature coordinates cross-feature reads without direct repository access.</li><li>Main lists use bounded pages; several responses batch related data; history queries have supporting indexes.</li></ul><p class="source"><a href="../src/main/java/com/beehome/config/SecurityConfiguration.java#L27">SecurityConfiguration.java</a> · <a href="../src/main/java/com/beehome/auth/security/AuthConfiguration.java#L64">AuthConfiguration.java</a> · <a href="../src/main/java/com/beehome/family/service/FamilyAuthorizationService.java#L22">FamilyAuthorizationService.java</a></p></section>
+      <section class="panel"><h2>API quality verification</h2><p><span class="status">Passed</span></p><p><code>./mvnw verify</code> completed in this review with <strong>222 tests, 0 failures, 0 errors, 0 skipped</strong>. A focused negative-path run passed 88 tests. MockMvc exercised routes against PostgreSQL Testcontainers. No API defect was reproduced.</p><p>Observed cases included missing, invalid, and expired tokens returning 401; cross-family media download returning 404; invalid images and foreign-family media returning 400; the fifth daily photo returning 400; and concurrent study starts admitting only one active session.</p><p><strong>Priority coverage gap:</strong> simulate a database commit failure after media file removal and a concurrent deletion/reference attempt. The integrity risk is conditional and was not reproduced.</p><p class="source">Full log: <code>/private/tmp/beehome-qa-current-verify.log</code> · Focused log: <code>/private/tmp/beehome-qa-negative.log</code> · <a href="../src/test/java/com/beehome/AuthenticationTests.java#L130">AuthenticationTests.java:130</a> · <a href="../src/test/java/com/beehome/PhotoMediaTests.java#L208">PhotoMediaTests.java:208–255</a> · <a href="../src/test/java/com/beehome/StudyTests.java#L189">StudyTests.java:189</a></p></section>
+    </div>
+
+    <section class="panel"><h2>Suggested order of work</h2><ol><li>Bound uploads by quota and lifecycle, and enforce drawing request size before allocation.</li><li>Set a report generation budget and test memory under concurrent PDF requests.</li><li>Make media deletion recoverable across storage and database failures.</li><li>Reduce feature-to-feature repository access where it creates rule or schema coupling.</li><li>Confirm production ingress rate limits and decide whether immediate JWT revocation is a product requirement.</li></ol></section>
+    <section class="panel"><h2>Scope and confidence</h2><p>Four agents independently reviewed the current checkout. Static findings identify reachable code paths and failure conditions, but deployment settings, production volume, query plans, load behavior, and real incident likelihood were not measured. The QA agent ran the full test suite, but did not start a separate HTTP server or run load and fault-injection tests. No authentication or cross-family access bypass was confirmed in the routes inspected. The architecture review found no need for a broad framework or service split.</p><p>Reference: commit <code>02087f2</code> on <code>main</code>. The percentages apply only to the security review and should be revised when deployment controls and usage data are known.</p></section>
+    <footer>BeeHome backend audit · Self-contained HTML; no external fonts, scripts, or network requests.</footer>
+  </main>
+  <script>
+    const buttons = [...document.querySelectorAll('[data-filter]')];
+    const findings = [...document.querySelectorAll('.finding')];
+    const count = document.getElementById('finding-count');
+    for (const button of buttons) button.addEventListener('click', () => {
+      const selected = button.dataset.filter;
+      for (const item of buttons) item.setAttribute('aria-pressed', String(item === button));
+      let visible = 0;
+      for (const item of findings) {
+        item.hidden = selected !== 'all' && !item.dataset.area.split(' ').includes(selected);
+        if (!item.hidden) visible++;
+      }
+      count.textContent = `${visible} ${visible === 1 ? 'finding' : 'findings'}`;
+    });
+  </script>
+</body>
+</html>
