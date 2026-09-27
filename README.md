@@ -334,6 +334,8 @@ The application runs on Java 25 in a separate runtime image as an unprivileged u
 PostgreSQL data persists in a volume, which `down` preserves.
 Ports are published on localhost only. Change `POSTGRES_PORT` and `APP_PORT`
 in `.env` if the default ports are occupied.
+For multiple app replicas, use the [TLS authentication ingress example](deploy/auth-ingress/README.md)
+to share one edge rate limit and pass a verified client address to each replica.
 
 ## Test and package
 

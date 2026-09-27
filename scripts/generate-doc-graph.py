@@ -13,7 +13,12 @@ LINK = re.compile(r"(?<!!)\[[^\]]*\]\(([^)]+)\)")
 
 
 def main() -> None:
-    markdown_files = [ROOT / "README.md", ROOT / "AGENTS.md", *sorted((ROOT / "docs").glob("*.md"))]
+    markdown_files = [
+        ROOT / "README.md",
+        ROOT / "AGENTS.md",
+        *sorted((ROOT / "docs").glob("*.md")),
+        *sorted((ROOT / "deploy").rglob("*.md")),
+    ]
     nodes = []
     edges = set()
     known = {path.resolve() for path in markdown_files}

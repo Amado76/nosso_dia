@@ -1,4 +1,4 @@
-name: beehome
+name: beehome-auth-ingress
 
 services:
   postgres:
@@ -6,9 +6,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-beehome}
       POSTGRES_USER: ${POSTGRES_USER:-beehome}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env}
-    ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql
     healthcheck:
@@ -16,29 +14,29 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-      start_period: 10s
+    networks: [database]
 
   app:
-    profiles: ["app"]
-    build: .
+    build: ../..
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-beehome}
       DB_USERNAME: ${POSTGRES_USER:-beehome}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env}
-      AUTH_ALLOW_EPHEMERAL_KEY: ${AUTH_ALLOW_EPHEMERAL_KEY:-false}
-      AUTH_SIGNING_KEY: ${AUTH_SIGNING_KEY:-}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      SPRING_FLYWAY_DEFAULT_SCHEMA: public
+      SERVER_FORWARD_HEADERS_STRATEGY: none
+      AUTH_ALLOW_EPHEMERAL_KEY: "false"
+      AUTH_SIGNING_KEY: ${AUTH_SIGNING_KEY:?Set a shared AUTH_SIGNING_KEY for all replicas}
       AUTH_ISSUER: ${AUTH_ISSUER:-beehome}
       AUTH_ACCESS_TTL: ${AUTH_ACCESS_TTL:-15m}
       AUTH_REFRESH_TTL: ${AUTH_REFRESH_TTL:-30d}
       AUTH_RESET_TTL: ${AUTH_RESET_TTL:-30m}
       AUTH_RESET_COOLDOWN: ${AUTH_RESET_COOLDOWN:-5m}
       AUTH_REQUESTS_PER_MINUTE: ${AUTH_REQUESTS_PER_MINUTE:-30}
-      AUTH_TRUSTED_PROXY_ADDRESS: ${AUTH_TRUSTED_PROXY_ADDRESS:-}
-      AUTH_PUBLIC_DOCS: ${AUTH_PUBLIC_DOCS:-false}
-      AUTH_RESET_MAIL_ENABLED: ${AUTH_RESET_MAIL_ENABLED:-false}
-      AUTH_RESET_MAIL_FROM: ${AUTH_RESET_MAIL_FROM:-}
-      AUTH_RESET_URL: ${AUTH_RESET_URL:-}
-      MAIL_HOST: ${MAIL_HOST:-}
+      AUTH_TRUSTED_PROXY_ADDRESS: 172.30.40.254
+      AUTH_RESET_MAIL_ENABLED: "true"
+      AUTH_RESET_MAIL_FROM: ${AUTH_RESET_MAIL_FROM:?Set AUTH_RESET_MAIL_FROM}
+      AUTH_RESET_URL: ${AUTH_RESET_URL:?Set AUTH_RESET_URL}
+      MAIL_HOST: ${MAIL_HOST:?Set MAIL_HOST}
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
@@ -49,13 +47,37 @@ services:
       MEDIA_STORAGE_DIRECTORY: /var/lib/beehome/media
       MEDIA_MAX_BYTES: ${MEDIA_MAX_BYTES:-10485760}
       MEDIA_MAX_REQUEST_BYTES: ${MEDIA_MAX_REQUEST_BYTES:-11534336}
-    ports:
-      - "127.0.0.1:${APP_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
       - media-data:/var/lib/beehome/media
+    networks: [database, edge]
+
+  ingress:
+    image: nginx:stable-alpine
+    ports:
+      - "${INGRESS_BIND_ADDRESS:-127.0.0.1}:${INGRESS_PORT:-8443}:8443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ${INGRESS_TLS_DIR:?Set INGRESS_TLS_DIR to a directory containing tls.crt and tls.key}:/etc/nginx/tls:ro
+    depends_on: [app]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://app:8080/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      edge:
+        ipv4_address: 172.30.40.254
+
+networks:
+  database:
+    internal: true
+  edge:
+    ipam:
+      config:
+        - subnet: 172.30.40.0/24
 
 volumes:
   postgres-data:

@@ -448,19 +448,32 @@ Business modules depend only on the authenticated internal user ID.
 ## Abuse protection and retention
 
 A bounded in-process limiter permits `AUTH_REQUESTS_PER_MINUTE` POST requests per
-remote IP across authentication endpoints in a fixed minute. Excess requests
+client IP across authentication endpoints in a fixed minute. Excess requests
 return localized 429 `RATE_LIMITED` and `Retry-After: 60`. The map holds at most
 10,000 active IP buckets and rejects new buckets when full. Expired buckets are
 removed. This includes registration to bound expensive password hashing.
 Forgot-password additionally enforces `AUTH_RESET_COOLDOWN` per existing account
 without changing the public response.
 
-This limiter is suitable as a single-instance baseline, not a distributed attack
-defense. Restarts reset the IP counters, fixed windows allow boundary bursts, and
-clients behind NAT share a bucket. It ignores untrusted forwarding headers.
-Behind a proxy, configure trusted client-address handling and apply coordinated
-IP/request/body-size limits at the ingress, especially before running replicas.
-Do not trust arbitrary `X-Forwarded-For` or add Redis solely for authentication.
+By default, the client IP is the TCP peer address. Set `AUTH_TRUSTED_PROXY_ADDRESS`
+only to the exact numeric address of an ingress controlled by the deployment.
+When that peer sends one valid `X-BeeHome-Client-IP` address, the local limiter
+uses it. The header is ignored from every other peer, and missing, repeated, or
+invalid values fall back to the peer address. The ingress must overwrite the
+header on every request; forwarding a client-supplied value would let clients
+choose their own buckets. Do not trust arbitrary `X-Forwarded-For`.
+
+This local limiter is defense in depth, not a distributed attack defense.
+Restarts reset its counters, fixed windows allow boundary bursts, and clients
+behind the same NAT still share a bucket. The [single-ingress deployment](../deploy/auth-ingress/README.md)
+places a coordinated IP limit and body-size limit before all application replicas.
+Its 429 response has the same stable `RATE_LIMITED` code and `Retry-After: 60`,
+and includes `X-BeeHome-Limit: ingress`; its English detail is not localized.
+If the ingress is itself replicated,
+its limits must use a shared counter or a single upstream enforcement point.
+Ingress body-size rejection returns 413 and may not have the application's JSON
+error shape; clients should handle that transport error separately.
+Do not add Redis solely for authentication.
 
 Operational retention should delete expired/consumed reset records and old refresh
 records in bounded batches. Delete refresh replacement chains in a way that
@@ -474,6 +487,10 @@ by [Compose](../compose.yaml). Defaults are 15-minute access, 30-day refresh,
 30-minute reset tokens, a 5-minute reset cooldown, and 30 auth requests/minute/IP.
 Access lifetime must be between one second and one hour; other durations must
 be positive. HTTP Basic and the generated Spring development user are removed.
+`AUTH_TRUSTED_PROXY_ADDRESS` defaults to empty. The local Compose stack does not
+have an ingress and should leave it empty. For multiple application replicas,
+use the [ingress deployment](../deploy/auth-ingress/README.md) or equivalent
+coordinated edge protection before exposing authentication routes.
 
 Local development explicitly sets `AUTH_ALLOW_EPHEMERAL_KEY=true`. Each restart
 invalidates previous access tokens because the signing key changes. Persisted

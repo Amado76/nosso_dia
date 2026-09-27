@@ -21,6 +21,7 @@ class SecurityConfiguration {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, AuthProperties properties,
             Clock clock, SecurityErrorHandler errors,
+            @Value("${auth.trusted-proxy-address:}") String trustedProxyAddress,
             @Value("${media.upload-requests-per-minute:10}") int uploadRequestsPerMinute) throws Exception {
         return http
                 // Bearer headers and JSON credentials are explicit; cookies and HTTP Basic are not accepted.
@@ -37,7 +38,7 @@ class SecurityConfiguration {
                 })
                 .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(errors).accessDeniedHandler(errors))
                 .oauth2ResourceServer(resource -> resource.jwt(jwt -> {}).authenticationEntryPoint(errors).accessDeniedHandler(errors))
-                .addFilterBefore(new AuthRateLimitFilter(properties, clock, errors), UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new AuthRateLimitFilter(properties, clock, errors, trustedProxyAddress), UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(new MediaUploadRateLimitFilter(uploadRequestsPerMinute, clock, errors), UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
