@@ -28,18 +28,23 @@ class TokenConfigurationTests {
         var now = Instant.parse("2026-01-01T00:00:00Z");
         var key = configuration.signingKey(properties);
         var encoder = configuration.jwtEncoder(key);
-        var decoder = configuration.jwtDecoder(key, properties, Clock.fixed(now, ZoneOffset.UTC));
+        var sessions = org.mockito.Mockito.mock(com.beehome.auth.repository.RefreshTokenRepository.class);
+        org.mockito.Mockito.when(sessions.existsByUserIdAndSessionIdAndRevokedAtIsNullAndExpiresAtAfter(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(true);
+        var decoder = configuration.jwtDecoder(key, properties, Clock.fixed(now, ZoneOffset.UTC), sessions);
         for (int scenario = 0; scenario < 5; scenario++) {
             var claims = JwtClaimsSet.builder().issuer(scenario == 0 ? "untrusted" : "beehome")
                     .subject(scenario == 1 ? "not-a-uuid" : UUID.randomUUID().toString())
                     .audience(List.of(scenario == 2 ? "another-api" : "beehome-api"))
-                    .issuedAt(now.minusSeconds(120));
+                    .issuedAt(now.minusSeconds(120)).claim("sid", UUID.randomUUID().toString());
             if (scenario != 3) claims.expiresAt(scenario == 4 ? now.minusSeconds(1) : now.plusSeconds(60));
             String raw = encoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims.build())).getTokenValue();
             assertThatThrownBy(() -> decoder.decode(raw)).isInstanceOf(JwtException.class);
         }
         var validClaims = JwtClaimsSet.builder().issuer("beehome").subject(UUID.randomUUID().toString())
-                .audience(List.of("beehome-api")).issuedAt(now).expiresAt(now.plusSeconds(60)).build();
+                .audience(List.of("beehome-api")).issuedAt(now).expiresAt(now.plusSeconds(60))
+                .claim("sid", UUID.randomUUID().toString()).build();
         var params = JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), validClaims);
         assertThat(decoder.decode(encoder.encode(params).getTokenValue()).getSubject()).isEqualTo(validClaims.getSubject());
         var foreignEncoder = configuration.jwtEncoder(configuration.signingKey(properties));

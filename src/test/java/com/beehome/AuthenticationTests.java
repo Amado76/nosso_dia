@@ -59,7 +59,8 @@ class AuthenticationTests {
         String email = UUID.randomUUID() + "@example.com";
         register(email);
         String session = login(email, "Secure-password1!");
-        String anotherSession = field(login(email, "Secure-password1!"), "refreshToken");
+        String anotherLogin = login(email, "Secure-password1!");
+        String anotherSession = field(anotherLogin, "refreshToken");
         String otherEmail = UUID.randomUUID() + "@example.com";
         register(otherEmail);
         String otherSession = field(login(otherEmail, "Secure-password1!"), "refreshToken");
@@ -75,6 +76,10 @@ class AuthenticationTests {
                 .andExpect(status().isUnauthorized());
         refresh(field(session, "refreshToken")).andExpect(status().isUnauthorized());
         refresh(anotherSession).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/users/me").header("Authorization", "Bearer " + field(session, "accessToken")))
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
+        mvc.perform(get("/api/users/me").header("Authorization", "Bearer " + field(anotherLogin, "accessToken")))
+                .andExpect(status().isUnauthorized());
         reset(captured.getValue()).andExpect(status().isBadRequest());
         refresh(otherSession).andExpect(status().isOk());
         login(otherEmail, "Secure-password1!");
@@ -140,6 +145,14 @@ class AuthenticationTests {
                 org.springframework.security.oauth2.jwt.JwsHeader.with(org.springframework.security.oauth2.jose.jws.MacAlgorithm.HS256).build(), claims)).getTokenValue();
         mvc.perform(get("/api/users/me").header("Authorization", "Bearer " + expired))
                 .andExpect(status().isUnauthorized());
+        var withoutSession = org.springframework.security.oauth2.jwt.JwtClaimsSet.builder().issuer("beehome")
+                .subject(UUID.randomUUID().toString()).audience(java.util.List.of("beehome-api"))
+                .issuedAt(now).expiresAt(now.plusSeconds(60)).build();
+        String oldAccess = encoder.encode(org.springframework.security.oauth2.jwt.JwtEncoderParameters.from(
+                org.springframework.security.oauth2.jwt.JwsHeader.with(org.springframework.security.oauth2.jose.jws.MacAlgorithm.HS256).build(),
+                withoutSession)).getTokenValue();
+        mvc.perform(get("/api/users/me").header("Authorization", "Bearer " + oldAccess))
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
         mvc.perform(get("/api/health")).andExpect(status().isOk());
         mvc.perform(post("/api/auth/logout").contentType("application/json").content("{\"refreshToken\":\"invalid\"}"))
                 .andExpect(status().isUnauthorized());
@@ -160,7 +173,8 @@ class AuthenticationTests {
     void passwordResetIsSingleUseChangesPasswordAndRevokesAllSessions() throws Exception {
         String email = UUID.randomUUID() + "@example.com";
         UUID id = UUID.fromString(field(register(email), "id"));
-        String session = field(login(email, "Secure-password1!"), "refreshToken");
+        String login = login(email, "Secure-password1!");
+        String session = field(login, "refreshToken");
         String knownResponse = forgot(email);
         org.assertj.core.api.Assertions.assertThat(knownResponse).isEqualTo(forgot("unknown-" + email));
         var captured = org.mockito.ArgumentCaptor.forClass(String.class);
@@ -174,6 +188,8 @@ class AuthenticationTests {
         reset(raw).andExpect(status().isOk());
         reset(raw).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_RESET_TOKEN"));
         refresh(session).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/users/me").header("Authorization", "Bearer " + field(login, "accessToken")))
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
         login(email, "new-Secure-password1!");
         mvc.perform(post("/api/auth/login").contentType("application/json")
                 .content("{\"email\":\"" + email + "\",\"password\":\"Secure-password1!\"}"))
@@ -418,9 +434,18 @@ class AuthenticationTests {
                 .content("{\"refreshToken\":\"" + refresh + "\"}"))
                 .andExpect(status().isUnauthorized());
         String next = com.jayway.jsonpath.JsonPath.read(rotated, "$.refreshToken");
+        mvc.perform(get("/api/users/me").header("Authorization", "Bearer " + access))
+                .andExpect(status().isOk());
+        String otherAccess = field(login(email, "Secure-password1!"), "accessToken");
         mvc.perform(post("/api/auth/logout").header("Authorization", "Bearer " + access)
                 .contentType("application/json").content("{\"refreshToken\":\"" + next + "\"}"))
                 .andExpect(status().isNoContent());
+        mvc.perform(get("/api/users/me").header("Authorization", "Bearer " + access))
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
+        mvc.perform(get("/api/users/me").header("Authorization", "Bearer " + field(rotated, "accessToken")))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/users/me").header("Authorization", "Bearer " + otherAccess))
+                .andExpect(status().isOk());
         mvc.perform(post("/api/auth/refresh").contentType("application/json")
                 .content("{\"refreshToken\":\"" + next + "\"}"))
                 .andExpect(status().isUnauthorized());

@@ -24,7 +24,7 @@ to English. Protected calls require `Authorization: Bearer <accessToken>`.
 Omit Authorization on public calls, especially refresh: an expired/invalid
 Bearer header can be rejected even on a public endpoint.
 
-There are no cookies or server sessions. Browser cross-origin access is not
+There are no cookies or HTTP server sessions. Browser cross-origin access is not
 configured. Use a same-origin reverse proxy or agree on explicit backend CORS
 configuration before connecting a UI on another origin; a successful curl call
 does not establish browser CORS support. Use HTTPS outside local development.
@@ -46,7 +46,8 @@ does not establish browser CORS support. Use HTTPS outside local development.
 Token responses contain `accessToken`, `refreshToken`, `tokenType=Bearer`, and
 `expiresIn` (access lifetime in seconds). Registration does not automatically log
 in. Logout requires the current access token and the relevant refresh token.
-Repeating logout on an already-revoked token owned by the caller succeeds.
+Repeating logout on an already-revoked refresh token owned by the caller succeeds
+when the caller has another valid Bearer token.
 
 Expected application and security errors use the existing RFC 9457 contract and
 stable `code`. Login uses `INVALID_CREDENTIALS` for missing accounts, incorrect
@@ -152,10 +153,10 @@ Replace both stored values together. The old refresh token is consumed.
 ```
 
 Returns `204 No Content`. The refresh session must belong to the authenticated
-user. Logout revokes only that refresh session; other sessions remain active.
-Repeating the call with an already-revoked token belonging to the same user
-succeeds while Bearer authentication remains valid. Clear client credentials
-after logout. Existing access JWTs remain valid until they expire.
+user. Logout revokes that session, including access JWTs issued before or after
+refresh rotation; other sessions remain active. A caller with a different active
+session can repeat logout with the revoked refresh token. The logged-out access
+JWT itself cannot authorize a retry. Clear client credentials after logout.
 
 ### Password recovery
 
@@ -189,8 +190,8 @@ Returns `200 OK`; with `Accept-Language: en`:
 ```
 
 Success consumes all outstanding reset tokens and revokes all refresh sessions
-for that user. Clear the current UI session and direct the user to login again;
-this call does not issue new tokens. Existing access JWTs expire naturally.
+and access JWTs for that user. Clear the current UI session and direct the user
+to login again; this call does not issue new tokens.
 
 ### Change the authenticated user's password
 
@@ -215,8 +216,8 @@ Returns `200 OK`; with `Accept-Language: en`:
 The new password is hashed and saved in PostgreSQL. The same transaction consumes
 all outstanding reset links and revokes every refresh session for this user,
 including the caller's session. Other users are unaffected. No new tokens are
-issued. Clear stored credentials and ask the user to log in with the new password.
-Existing access JWTs remain usable until expiry (15 minutes by default).
+issued. All existing access JWTs are invalid immediately after the change commits.
+Clear stored credentials and ask the user to log in with the new password.
 
 Invalid input or a wrong current password makes no changes. Reusing the current
 password as the new password is allowed if it meets the password policy. Concurrent
@@ -296,7 +297,8 @@ the credential. If a successful rotation's response is lost, the old refresh
 token cannot recover the new pair; login again. A reset retry may return
 `INVALID_RESET_TOKEN` even if the first call changed the password. Forgot-password
 can be requested again subject to cooldown/rate limits, with the same generic
-response. GET requests and same-user logout can be retried with valid credentials.
+response. GET requests can be retried with valid credentials. Logout can be
+retried only with a Bearer token from another active session.
 
 Default lifetimes are 15 minutes for access, 30 days for refresh (renewed on each
 rotation), and 30 minutes for reset; the reset-request cooldown is 5 minutes.
@@ -323,10 +325,13 @@ runs outside database locks. Tune its cost with deployment measurements before
 changing it; the encoding identifier supports future upgrades.
 
 Spring Security's OAuth2 resource server verifies HS256 signatures, issuer,
-audience, expiry, and UUID subject before constructing the security context.
-JWT claims are limited to internal subject, issuer, audience, issued/expiry times,
-and token ID. No names, emails, provider identities, or business permissions are
-included. Token verification uses zero expiry tolerance; keep server clocks synced.
+audience, expiry, UUID subject, and the active refresh session before constructing
+the security context. JWT claims include the internal session ID (`sid`) along
+with subject, issuer, audience, issued/expiry times, and token ID. No names,
+emails, provider identities, or business permissions are included. Every Bearer
+request queries PostgreSQL for an active, unexpired session. Token verification
+uses zero expiry tolerance; keep server clocks synced. Access JWTs issued before
+this session check was deployed lack `sid` and require a new login or refresh.
 
 Refresh and reset secrets are independent 256-bit values from `SecureRandom`.
 Only their SHA-256 hashes are persisted. SHA-256 is appropriate for these random
@@ -334,10 +339,12 @@ secrets; user passwords use the dedicated slow password encoder.
 
 Refresh rotation revokes the old token and records its replacement atomically.
 Replays fail; they do not revoke the replacement session. Each rotation starts a
-new configured refresh lifetime. Logout revokes one session. Password reset and
+new configured refresh lifetime. Access JWTs remain valid across refresh rotation
+while the session is active. Logout revokes one session. Password reset and
 authenticated password change update the hash, consume every outstanding reset
-token for that user, and revoke every refresh session in one transaction. Access tokens expire naturally.
-There is no access-token denylist.
+token for that user, and revoke every refresh session in one transaction. Access
+JWTs are rejected after their session is revoked, even before JWT expiry. There
+is no per-token denylist.
 
 Login session issuance, rotation, logout, recovery issuance, reset, and password
 change serialize through a user-row lock. Token rows are locked after the user row. Login rechecks

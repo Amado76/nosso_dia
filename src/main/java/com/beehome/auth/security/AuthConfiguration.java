@@ -1,5 +1,6 @@
 package com.beehome.auth.security;
 
+import com.beehome.auth.repository.RefreshTokenRepository;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
@@ -61,18 +62,21 @@ public class AuthConfiguration {
     }
 
     @Bean
-    JwtDecoder jwtDecoder(SecretKey key, AuthProperties properties, Clock clock) {
+    JwtDecoder jwtDecoder(SecretKey key, AuthProperties properties, Clock clock, RefreshTokenRepository sessions) {
         var decoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
         var timestamp = new JwtTimestampValidator(Duration.ZERO);
         timestamp.setClock(clock);
         OAuth2TokenValidator<Jwt> identity = jwt -> {
             try {
-                UUID.fromString(jwt.getSubject());
-                if (jwt.getExpiresAt() != null && jwt.getAudience().contains("beehome-api")) {
+                UUID userId = UUID.fromString(jwt.getSubject());
+                UUID sessionId = UUID.fromString(jwt.getClaimAsString("sid"));
+                if (jwt.getExpiresAt() != null && jwt.getAudience().contains("beehome-api")
+                        && sessions.existsByUserIdAndSessionIdAndRevokedAtIsNullAndExpiresAtAfter(
+                                userId, sessionId, clock.instant())) {
                     return OAuth2TokenValidatorResult.success();
                 }
-            } catch (RuntimeException ignored) {
-                // A missing or malformed subject must remain an authentication failure.
+            } catch (IllegalArgumentException | NullPointerException | ClassCastException ignored) {
+                // Missing or malformed identity claims must remain authentication failures.
             }
             return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token"));
         };

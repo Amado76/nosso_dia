@@ -31,8 +31,8 @@ public class TokenService {
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
     public AuthResponse issue(UUID userId) {
         String raw = TokenSecrets.generate();
-        tokens.save(new RefreshToken(userId, raw, clock.instant(), clock.instant().plus(properties.refreshTtl())));
-        return response(userId, raw);
+        var token = tokens.save(new RefreshToken(userId, raw, clock.instant(), clock.instant().plus(properties.refreshTtl())));
+        return response(userId, token.getSessionId(), raw);
     }
     @Transactional
     public AuthResponse refresh(String raw) {
@@ -43,22 +43,23 @@ public class TokenService {
         var now = clock.instant();
         if (!previous.active(now)) throw invalid();
         String nextRaw = TokenSecrets.generate();
-        var next = tokens.saveAndFlush(new RefreshToken(userId, nextRaw, now, now.plus(properties.refreshTtl())));
+        var next = tokens.saveAndFlush(new RefreshToken(userId, previous.getSessionId(), nextRaw, now, now.plus(properties.refreshTtl())));
         previous.replaceWith(next.getId(), now);
-        return response(userId, nextRaw);
+        return response(userId, next.getSessionId(), nextRaw);
     }
     @Transactional
     public void logout(UUID userId, String raw) {
         users.lock(userId);
         var token = tokens.findByTokenHash(TokenSecrets.hash(raw)).orElseThrow(TokenService::invalid);
         if (!token.getUserId().equals(userId)) throw invalid();
-        token.revoke(clock.instant());
+        tokens.revokeSession(userId, token.getSessionId(), clock.instant());
     }
-    private AuthResponse response(UUID userId, String raw) {
+    private AuthResponse response(UUID userId, UUID sessionId, String raw) {
         var now = clock.instant();
         var claims = JwtClaimsSet.builder().issuer(properties.issuer()).subject(userId.toString())
                 .audience(java.util.List.of("beehome-api")).issuedAt(now)
-                .expiresAt(now.plus(properties.accessTtl())).id(UUID.randomUUID().toString()).build();
+                .expiresAt(now.plus(properties.accessTtl())).id(UUID.randomUUID().toString())
+                .claim("sid", sessionId.toString()).build();
         String access = encoder.encode(JwtEncoderParameters.from(
                 JwsHeader.with(MacAlgorithm.HS256).build(), claims)).getTokenValue();
         return new AuthResponse(access, raw, "Bearer", properties.accessTtl().toSeconds());

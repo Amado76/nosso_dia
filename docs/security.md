@@ -5,7 +5,8 @@ uploads, and downloads. Follow [AGENTS.md](../AGENTS.md).
 
 ## Current authentication boundary
 
-PDR-01 uses stateless Bearer JWT authentication with email/password registration,
+PDR-01 uses Bearer JWT authentication with a persisted refresh-session check on
+protected requests, email/password registration,
 rotating refresh sessions, SMTP password recovery, and authenticated password changes. Public routes are explicitly
 listed in the security configuration; all others require authentication.
 HTTP Basic and generated development users are disabled. Swagger is public only

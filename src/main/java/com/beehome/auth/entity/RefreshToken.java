@@ -11,6 +11,7 @@ import java.util.UUID;
 public class RefreshToken {
     @Id private UUID id;
     @Column(name = "user_id", nullable = false) private UUID userId;
+    @Column(name = "session_id", nullable = false) private UUID sessionId;
     @Column(name = "token_hash", nullable = false, unique = true, length = 64) private String tokenHash;
     @Column(name = "expires_at", nullable = false) private Instant expiresAt;
     @Column(name = "revoked_at") private Instant revokedAt;
@@ -18,8 +19,12 @@ public class RefreshToken {
     @Column(name = "created_at", nullable = false) private Instant createdAt;
     protected RefreshToken() {}
     public RefreshToken(UUID userId, String raw, Instant now, Instant expiresAt) {
+        this(userId, null, raw, now, expiresAt);
+    }
+    public RefreshToken(UUID userId, UUID sessionId, String raw, Instant now, Instant expiresAt) {
         id = UUID.randomUUID();
         this.userId = userId;
+        this.sessionId = sessionId == null ? id : sessionId;
         tokenHash = TokenSecrets.hash(raw);
         createdAt = now;
         this.expiresAt = expiresAt;
@@ -27,6 +32,7 @@ public class RefreshToken {
     public boolean active(Instant now) { return revokedAt == null && expiresAt.isAfter(now); }
     public UUID getId() { return id; }
     public UUID getUserId() { return userId; }
+    public UUID getSessionId() { return sessionId; }
     public void replaceWith(UUID replacementId, Instant now) {
         revokedAt = now;
         replacedBy = replacementId;
