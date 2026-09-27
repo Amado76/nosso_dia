@@ -11,7 +11,7 @@ Base URL: `/api`. Both routes require `Authorization: Bearer <access-token>` and
 | GET | `/families/{familyId}/members/{memberId}/drawings/profile-scratchpad` | Any persisted member of the family | `200` drawing |
 | PUT | Same path | Family `OWNER` or `ADMIN` | `200` saved drawing |
 
-`familyId` and `memberId` are UUIDs. The member must belong to the path family; inactive profiles can still be read and edited. A nonmember receives a safe `404 FAMILY_NOT_FOUND`; a missing member or one belonging to a different family receives `404 FAMILY_MEMBER_NOT_FOUND`. A family `MEMBER` can read but receives `403 FORBIDDEN` on PUT. Anonymous requests receive `401 UNAUTHENTICATED`. A profile's account link does not change these role rules.
+`familyId` and `memberId` are UUIDs. The member must belong to the path family; inactive profiles can still be read and edited. A nonmember receives a safe `404 FAMILY_NOT_FOUND`; a missing member or one belonging to a different family receives `404 FAMILY_MEMBER_NOT_FOUND`. A family `MEMBER` can read but receives `403 FORBIDDEN` on PUT. Anonymous requests receive `401 UNAUTHENTICATED`. A profile's account link does not change these role rules. The PUT body limit is enforced before resource authorization, so an oversized request from an authenticated user may receive `413 DRAWING_TOO_LARGE` before an access error.
 
 ## Document contract
 
@@ -47,7 +47,7 @@ PUT replaces the *entire* current document. All top-level and nested fields show
 | `x`, `y` | JSON numbers from `0` through `1`, inclusive, relative to the logical drawing surface. Never send screen pixels. |
 | `pressure` | Optional JSON number from `0` through `1`, inclusive; omit rather than send null when absent. |
 
-The default maximum raw PUT body and serialized stored document are each **5,242,880 bytes (5 MiB)**. The raw limit includes whitespace and JSON syntax. The configured ceilings are `DRAWINGS_MAX_STROKES=5000`, `DRAWINGS_MAX_POINTS_PER_STROKE=10000`, and `DRAWINGS_MAX_DOCUMENT_BYTES=5242880`; they map to `app.drawings.*` in `application.properties` and are listed in `.env.example`. Keep client payloads below all limits. The HTTP body is held in memory for validation, so clients should debounce and simplify strokes before sending.
+The default maximum raw PUT body and serialized stored document are each **5,242,880 bytes (5 MiB)**. The raw limit includes whitespace and JSON syntax. The configured ceilings are `DRAWINGS_MAX_STROKES=5000`, `DRAWINGS_MAX_POINTS_PER_STROKE=10000`, and `DRAWINGS_MAX_DOCUMENT_BYTES=5242880`; they map to `app.drawings.*` in `application.properties` and are listed in `.env.example`. Keep client payloads below all limits. A declared body size over the limit is rejected before reading; otherwise the server reads at most the limit plus one byte, including when the size is not declared. Accepted bodies are held in memory for validation, so clients should debounce and simplify strokes before sending.
 
 ## Read and save responses
 

@@ -1,6 +1,16 @@
 package com.beehome;
 
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletInputStream;
+import jakarta.servlet.ReadListener;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequestWrapper;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -8,9 +18,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -19,10 +32,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = "auth.allow-ephemeral-key=true")
 @AutoConfigureMockMvc
-@Import(TestcontainersConfiguration.class)
+@Import({TestcontainersConfiguration.class, DrawingTests.BodyReadTestConfiguration.class})
 class DrawingTests {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
+    @Autowired BodyReadTrackingFilter bodyReads;
 
     private UUID user() {
         UUID id = UUID.randomUUID();
@@ -135,6 +149,85 @@ class DrawingTests {
                         .contentType("application/json").content(body))
                 .andExpect(status().isContentTooLarge()).andExpect(jsonPath("$.code").value("DRAWING_TOO_LARGE"));
         assertThat(jdbc.queryForObject("select count(*) from beehome.drawings where family_id = ? and member_id = ?", Integer.class, family, member)).isZero();
+    }
+
+    @Test
+    void stopsReadingOversizedBodyWithoutContentLengthAfterTheFirstExcessByte() throws Exception {
+        UUID owner = user(), family = family(owner), member = member(family);
+        byte[] body = ("{\"formatVersion\":1,\"revision\":0,\"strokes\":[]}"
+                + " ".repeat(5 * 1024 * 1024 + 1024)).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        bodyReads.reset();
+
+        mvc.perform(put(path(family, member)).with(jwt().jwt(j -> j.subject(owner.toString())))
+                        .contentType("application/json").content(body))
+                .andExpect(status().isContentTooLarge())
+                .andExpect(jsonPath("$.code").value("DRAWING_TOO_LARGE"));
+
+        assertThat(bodyReads.bytesRead()).isEqualTo(5 * 1024 * 1024 + 1);
+        assertThat(jdbc.queryForObject("select count(*) from beehome.drawings where family_id = ? and member_id = ?",
+                Integer.class, family, member)).isZero();
+    }
+
+    @Test
+    void rejectsDeclaredOversizedBodyWithoutReadingIt() throws Exception {
+        UUID owner = user(), family = family(owner), member = member(family);
+        bodyReads.reset();
+        bodyReads.exposeContentLength();
+
+        mvc.perform(put(path(family, member)).with(jwt().jwt(j -> j.subject(owner.toString())))
+                        .contentType("application/json").content(new byte[5 * 1024 * 1024 + 1]))
+                .andExpect(status().isContentTooLarge())
+                .andExpect(jsonPath("$.code").value("DRAWING_TOO_LARGE"));
+
+        assertThat(bodyReads.bytesRead()).isZero();
+    }
+
+    @TestConfiguration
+    static class BodyReadTestConfiguration {
+        @Bean BodyReadTrackingFilter bodyReadTrackingFilter() { return new BodyReadTrackingFilter(); }
+    }
+
+    static class BodyReadTrackingFilter extends OncePerRequestFilter {
+        private final AtomicInteger bytesRead = new AtomicInteger();
+        private final AtomicBoolean exposeContentLength = new AtomicBoolean();
+
+        void reset() { bytesRead.set(0); exposeContentLength.set(false); }
+        void exposeContentLength() { exposeContentLength.set(true); }
+        int bytesRead() { return bytesRead.get(); }
+
+        @Override protected boolean shouldNotFilter(HttpServletRequest request) {
+            return !"PUT".equals(request.getMethod()) || !request.getRequestURI().endsWith("/drawings/profile-scratchpad");
+        }
+
+        @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+                throws ServletException, IOException {
+            chain.doFilter(new HttpServletRequestWrapper(request) {
+                @Override public long getContentLengthLong() {
+                    return exposeContentLength.get() ? super.getContentLengthLong() : -1;
+                }
+                @Override public int getContentLength() {
+                    return exposeContentLength.get() ? super.getContentLength() : -1;
+                }
+                @Override public ServletInputStream getInputStream() throws IOException {
+                    ServletInputStream delegate = super.getInputStream();
+                    return new ServletInputStream() {
+                        @Override public int read() throws IOException {
+                            int value = delegate.read();
+                            if (value != -1) bytesRead.incrementAndGet();
+                            return value;
+                        }
+                        @Override public int read(byte[] buffer, int offset, int length) throws IOException {
+                            int count = delegate.read(buffer, offset, length);
+                            if (count > 0) bytesRead.addAndGet(count);
+                            return count;
+                        }
+                        @Override public boolean isFinished() { return delegate.isFinished(); }
+                        @Override public boolean isReady() { return delegate.isReady(); }
+                        @Override public void setReadListener(ReadListener listener) { delegate.setReadListener(listener); }
+                    };
+                }
+            }, response);
+        }
     }
 
     @Test
