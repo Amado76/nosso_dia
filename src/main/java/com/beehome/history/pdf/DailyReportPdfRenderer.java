@@ -1,28 +1,54 @@
 package com.beehome.history.pdf;
 
 import com.beehome.history.dto.HistoryDetail;
+import com.beehome.history.exception.ReportException;
 import com.beehome.media.service.MediaService;
 import java.awt.image.BufferedImage;
 import java.awt.*;
 import java.io.*;
 import java.text.Normalizer;
 import java.util.UUID;
+import java.util.concurrent.Semaphore;
 import javax.imageio.ImageIO;
 import org.apache.pdfbox.pdmodel.*;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.*;
+import org.apache.pdfbox.pdmodel.graphics.image.JPEGFactory;
 import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
 public class DailyReportPdfRenderer {
+    private static final Logger log = LoggerFactory.getLogger(DailyReportPdfRenderer.class);
     private static final PDFont FONT = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
     private static final PDFont BOLD = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
     private final MediaService media;
-    public DailyReportPdfRenderer(MediaService media) { this.media = media; }
+    private final int maxBytes;
+    private final Semaphore slots;
+    public DailyReportPdfRenderer(MediaService media,
+            @Value("${app.reports.max-pdf-bytes:8388608}") int maxBytes,
+            @Value("${app.reports.max-concurrent-pdfs:2}") int maxConcurrent) {
+        if (maxBytes < 1 || maxConcurrent < 1) throw new IllegalArgumentException("PDF budgets must be positive");
+        this.media = media;
+        this.maxBytes = maxBytes;
+        this.slots = new Semaphore(maxConcurrent);
+    }
 
     public byte[] render(UUID user, UUID family, HistoryDetail day) {
-        try (var document = new PDDocument(); var output = new ByteArrayOutputStream()) {
+        if (!slots.tryAcquire()) throw ReportException.busy();
+        long start = System.nanoTime();
+        try {
+            return generate(user, family, day, start);
+        } finally {
+            slots.release();
+        }
+    }
+
+    private byte[] generate(UUID user, UUID family, HistoryDetail day, long start) {
+        try (var document = new PDDocument(); var output = new LimitedOutputStream(maxBytes)) {
             try (var page = new Writer(document)) {
                 page.heading("Daily report");
                 page.line(day.childName());
@@ -37,7 +63,10 @@ public class DailyReportPdfRenderer {
                                 var content = media.content(user, family, image.id());
                                 try (var input = content.resource().getInputStream()) {
                                     BufferedImage bitmap = ImageIO.read(input);
-                                    if (bitmap != null) page.image(bitmap);
+                                    if (bitmap != null) {
+                                        try { page.image(bitmap); }
+                                        finally { bitmap.flush(); }
+                                    }
                                 }
                             } catch (RuntimeException | IOException ignored) {
                                 // A missing or unreadable image does not discard the rest of the report.
@@ -87,8 +116,29 @@ public class DailyReportPdfRenderer {
                 }
             }
             document.save(output);
-            return output.toByteArray();
-        } catch (IOException e) { throw new IllegalStateException("PDF rendering failed", e); }
+            byte[] result = output.toByteArray();
+            log.info("Daily PDF generated: pages={}, bytes={}, durationMs={}", document.getNumberOfPages(),
+                    result.length, java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
+            return result;
+        } catch (LimitExceededException e) { throw ReportException.tooLarge(); }
+        catch (IOException e) { throw new IllegalStateException("PDF rendering failed", e); }
+    }
+
+    private static final class LimitExceededException extends IOException {}
+
+    private static final class LimitedOutputStream extends OutputStream {
+        private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        private final int limit;
+        LimitedOutputStream(int limit) { this.limit = limit; }
+        @Override public void write(int value) throws IOException {
+            if (bytes.size() >= limit) throw new LimitExceededException();
+            bytes.write(value);
+        }
+        @Override public void write(byte[] data, int offset, int length) throws IOException {
+            if (length > limit - bytes.size()) throw new LimitExceededException();
+            bytes.write(data, offset, length);
+        }
+        byte[] toByteArray() { return bytes.toByteArray(); }
     }
 
     private static class Writer implements AutoCloseable {
@@ -133,7 +183,7 @@ public class DailyReportPdfRenderer {
             float scale = Math.min(505f / image.getWidth(), 190f / image.getHeight());
             float width = image.getWidth() * scale, height = image.getHeight() * scale;
             space(height + 12); y -= height;
-            float rasterScale = Math.min(1f, Math.min(1010f / image.getWidth(), 380f / image.getHeight()));
+            float rasterScale = Math.min(1f, Math.min(800f / image.getWidth(), 300f / image.getHeight()));
             BufferedImage rendered = image;
             if (rasterScale < 1f) {
                 int pixelsWide = Math.max(1, Math.round(image.getWidth() * rasterScale));
@@ -147,7 +197,13 @@ public class DailyReportPdfRenderer {
                     graphics.drawImage(image, 0, 0, pixelsWide, pixelsHigh, null);
                 } finally { graphics.dispose(); }
             }
-            content.drawImage(LosslessFactory.createFromImage(document, rendered), 45, y, width, height);
+            try {
+                var embedded = rendered.getWidth() < 16 || rendered.getHeight() < 16
+                        ? LosslessFactory.createFromImage(document, rendered)
+                        : JPEGFactory.createFromImage(document, rendered, 0.72f);
+                content.drawImage(embedded, 45, y, width, height);
+            }
+            finally { if (rendered != image) rendered.flush(); }
             y -= 12;
         }
         @Override public void close() throws IOException { if (content != null) content.close(); }

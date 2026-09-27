@@ -21,7 +21,7 @@ class HistoryServiceTests {
     private final PhotoRecordService photos = mock(PhotoRecordService.class);
     private final com.beehome.reading.service.ReadingService reading = mock(com.beehome.reading.service.ReadingService.class);
     private final com.beehome.activity.service.ActivityService activities = mock(com.beehome.activity.service.ActivityService.class);
-    private final HistoryService history = new HistoryService(members, executions, studies, photos, reading, activities, 366);
+    private final HistoryService history = new HistoryService(members, executions, studies, photos, reading, activities, 366, 500);
 
     private void child() {
         when(members.get(user, family, child)).thenReturn(new FamilyMemberResponse(child, family, "Child",
@@ -32,6 +32,18 @@ class HistoryServiceTests {
         assertThatThrownBy(() -> history.report(user, family, child, LocalDate.parse("2025-01-01"),
                 LocalDate.parse("2026-01-02"))).isInstanceOf(com.beehome.shared.exception.InputException.class);
         verifyNoInteractions(executions, studies, photos, reading, activities);
+    }
+    @Test void rejectsOversizedDailyPdfBeforeLoadingDetailSources() {
+        child(); LocalDate date = LocalDate.parse("2026-09-21");
+        when(reading.historyCounts(user, family, child, date, date))
+                .thenReturn(List.of(new com.beehome.reading.service.ReadingService.ReadingDay(date, 501)));
+
+        assertThatThrownBy(() -> history.reportDetail(user, family, child, date))
+                .isInstanceOf(com.beehome.shared.exception.ApiException.class)
+                .satisfies(error -> assertThat(((com.beehome.shared.exception.ApiException) error).getCode())
+                        .isEqualTo("REPORT_TOO_LARGE"));
+        verify(reading, never()).listSessions(any(), any(), any(), any(), any(), any(), anyInt(), anyInt());
+        verify(executions, never()).historyRange(any(), any(), any(), any(), any());
     }
     @Test void aggregatesOnlyCompletedStudyMinutesAndExcludesCancelledRoutineItems() {
         child(); LocalDate date = LocalDate.parse("2026-09-21");

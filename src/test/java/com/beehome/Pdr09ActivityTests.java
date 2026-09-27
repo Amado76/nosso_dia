@@ -156,7 +156,7 @@ class Pdr09ActivityTests {
                     java.time.Instant.EPOCH, 0));
         var detail = new com.beehome.history.dto.HistoryDetail(date, UUID.randomUUID(), "José", null,
                 java.util.List.of(), java.util.List.of(), 0, 100, false, java.util.List.of(), entries);
-        byte[] pdf = new com.beehome.history.pdf.DailyReportPdfRenderer(org.mockito.Mockito.mock(com.beehome.media.service.MediaService.class))
+        byte[] pdf = new com.beehome.history.pdf.DailyReportPdfRenderer(org.mockito.Mockito.mock(com.beehome.media.service.MediaService.class), 8_388_608, 2)
                 .render(UUID.randomUUID(), UUID.randomUUID(), detail);
         try (var document = org.apache.pdfbox.Loader.loadPDF(pdf)) {
             org.assertj.core.api.Assertions.assertThat(document.getNumberOfPages()).isGreaterThan(1);
@@ -180,7 +180,7 @@ class Pdr09ActivityTests {
                 java.util.List.of(new com.beehome.history.dto.HistoryDetail.Photo(UUID.randomUUID(), date, null,
                         java.util.List.of(), java.util.List.of(new com.beehome.history.dto.HistoryDetail.Photo.Media(mediaId, 0)))),
                 java.util.List.of());
-        byte[] pdf = new com.beehome.history.pdf.DailyReportPdfRenderer(media).render(user, family, detail);
+        byte[] pdf = new com.beehome.history.pdf.DailyReportPdfRenderer(media, 8_388_608, 2).render(user, family, detail);
         try (var document = org.apache.pdfbox.Loader.loadPDF(pdf)) {
             var page = document.getPage(0);
             var names = page.getResources().getXObjectNames().iterator();

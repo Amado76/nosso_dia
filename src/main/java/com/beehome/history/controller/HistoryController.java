@@ -16,6 +16,8 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/api/families/{familyId}/children/{childId}")
@@ -24,6 +26,7 @@ import org.springframework.web.bind.annotation.*;
 @ApiResponse(responseCode = "401", description = "Bearer authentication required")
 @ApiResponse(responseCode = "404", description = "Family or child missing or inaccessible")
 public class HistoryController {
+    private static final Logger log = LoggerFactory.getLogger(HistoryController.class);
     private final HistoryService history;
     private final DailyReportPdfRenderer pdf;
     public HistoryController(HistoryService history, DailyReportPdfRenderer pdf) { this.history = history; this.pdf = pdf; }
@@ -41,16 +44,24 @@ public class HistoryController {
     @Operation(summary = "Download an on-demand daily report PDF")
     @ApiResponse(responseCode = "200", description = "On-demand daily report",
             content = @Content(mediaType = "application/pdf", schema = @Schema(type = "string", format = "binary")))
+    @ApiResponse(responseCode = "422", description = "Daily report exceeds the item or PDF byte budget",
+            content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))
+    @ApiResponse(responseCode = "503", description = "Daily PDF generation is at capacity",
+            content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))
     public ResponseEntity<byte[]> pdf(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID familyId, @PathVariable UUID childId,
             @Parameter(schema = @Schema(type = "string", format = "date")) @PathVariable String date) {
+        long start = System.nanoTime();
         var day = history.reportDetail(user(jwt), familyId, childId, JsonFields.date(date));
         String slug = Normalizer.normalize(day.childName(), Normalizer.Form.NFKD).replaceAll("\\p{M}+", "")
                 .toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("^-|-$", "");
         if (slug.isBlank()) slug = "child";
         String filename = "daily-report-" + slug + "-" + day.date() + ".pdf";
+        byte[] body = pdf.render(user(jwt), familyId, day);
+        log.info("Daily PDF request completed: durationMs={}",
+                java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                .body(pdf.render(user(jwt), familyId, day));
+                .body(body);
     }
     @GetMapping("/calendar")
     @Operation(summary = "List dates with activity and source flags")

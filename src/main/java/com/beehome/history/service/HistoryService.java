@@ -6,6 +6,7 @@ import com.beehome.familymember.entity.MemberType;
 import com.beehome.familymember.exception.FamilyMemberException;
 import com.beehome.familymember.service.FamilyMemberService;
 import com.beehome.history.dto.*;
+import com.beehome.history.exception.ReportException;
 import com.beehome.reading.service.ReadingService;
 import com.beehome.photorecord.dto.PhotoRecordResponse;
 import com.beehome.photorecord.service.PhotoRecordService;
@@ -33,15 +34,19 @@ public class HistoryService {
     private final ReadingService reading;
     private final ActivityService activities;
     private final int maxPeriodDays;
+    private final int maxDailyReportItems;
 
     public HistoryService(FamilyMemberService members, DailyExecutionService executions, StudyService studies,
             PhotoRecordService photos, ReadingService reading, ActivityService activities,
-            @Value("${app.reports.max-period-days:366}") int maxPeriodDays) {
+            @Value("${app.reports.max-period-days:366}") int maxPeriodDays,
+            @Value("${app.reports.max-daily-items:500}") int maxDailyReportItems) {
         this.members = members; this.executions = executions; this.studies = studies; this.photos = photos;
         this.reading = reading;
         this.activities = activities;
         if (maxPeriodDays < 1) throw new IllegalArgumentException("app.reports.max-period-days must be positive");
+        if (maxDailyReportItems < 1) throw new IllegalArgumentException("app.reports.max-daily-items must be positive");
         this.maxPeriodDays = maxPeriodDays;
+        this.maxDailyReportItems = maxDailyReportItems;
     }
 
     private String child(UUID user, UUID family, UUID child) {
@@ -70,7 +75,19 @@ public class HistoryService {
 
     @Transactional(readOnly = true)
     public HistoryDetail reportDetail(UUID user, UUID family, UUID child, LocalDate date) {
+        child(user, family, child);
+        if (date == null) throw new InputException();
+        long count = executions.historyCounts(user, family, child, date, date).stream()
+                .mapToLong(day -> 1 + day.plannedItems()).sum()
+                + studies.historyCounts(user, family, child, date, date).stream().mapToLong(StudyService.StudyDay::sessions).sum()
+                + photos.historyCounts(user, family, child, date, date).stream().mapToLong(PhotoRecordService.PhotoDay::records).sum()
+                + activities.historyCounts(user, family, child, date, date).stream().mapToLong(ActivityService.ActivityDay::records).sum()
+                + reading.historyCounts(user, family, child, date, date).stream().mapToLong(ReadingService.ReadingDay::sessions).sum();
+        if (count > maxDailyReportItems) throw ReportException.tooLarge();
         var first = detail(user, family, child, date, 0, 100);
+        long loaded = (first.routine() == null ? 0 : 1L + first.routine().items().size())
+                + first.studies().size() + first.photos().size() + first.extracurricularActivities().size();
+        if (loaded + first.reading().size() > maxDailyReportItems) throw ReportException.tooLarge();
         if (!first.readingHasNext()) return first;
         var all = new ArrayList<>(first.reading());
         int page = 1;
@@ -79,6 +96,7 @@ public class HistoryService {
             var next = reading.listSessions(user, family, child, date, date, null, page, 100);
             next.items().forEach(session -> all.add(new HistoryDetail.Reading(session.id(), session.childBookId(),
                     session.book().id(), session.book().title(), session.minutes(), session.pagesRead())));
+            if (loaded + all.size() > maxDailyReportItems) throw ReportException.tooLarge();
             more = next.hasNext();
             page++;
         }
