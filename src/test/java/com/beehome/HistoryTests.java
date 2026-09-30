@@ -1,6 +1,9 @@
 package com.beehome;
 
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -34,6 +37,7 @@ class HistoryTests {
     }
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
+    @Autowired com.beehome.history.pdf.DailyReportPdfRenderer pdfRenderer;
     @Autowired jakarta.persistence.EntityManagerFactory entityManagerFactory;
     @org.springframework.test.context.bean.override.mockito.MockitoBean java.time.Clock clock;
     @org.junit.jupiter.api.BeforeEach void time() {
@@ -53,6 +57,46 @@ class HistoryTests {
                 .contentType("application/json").content("{\"name\":\"Child\",\"memberType\":\"CHILD\"}"))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         return "/api/families/" + familyId + "/children/" + com.jayway.jsonpath.JsonPath.read(member, "$.id");
+    }
+
+    @Test void deniesInaccessiblePdfBeforeReportingBusyCapacity() throws Exception {
+        UUID owner = UUID.randomUUID(), outsider = UUID.randomUUID();
+        String base = child(owner);
+        jdbc.update("insert into beehome.users(id,name,email,created_at,updated_at) values (?, 'History', ?, now(), now())",
+                outsider, outsider + "@example.com");
+        var entered = new CountDownLatch(2);
+        var release = new CountDownLatch(1);
+        var day = new com.beehome.history.dto.HistoryDetail(java.time.LocalDate.parse("2026-09-21"),
+                UUID.randomUUID(), "Child", null, java.util.List.of(), java.util.List.of(), 0, 100, false,
+                java.util.List.of(), java.util.List.of());
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var jobs = new java.util.ArrayList<java.util.concurrent.Future<?>>();
+            for (int i = 0; i < 2; i++) {
+                jobs.add(pool.submit(() -> pdfRenderer.render(owner, UUID.randomUUID(), () -> {
+                    entered.countDown();
+                    try {
+                        if (!release.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Timed out");
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new IllegalStateException(e);
+                    }
+                    return day;
+                })));
+            }
+            try {
+                org.assertj.core.api.Assertions.assertThat(entered.await(10, TimeUnit.SECONDS)).isTrue();
+                mvc.perform(get(base + "/history/2026-09-21/pdf")
+                        .with(jwt().jwt(j -> j.subject(outsider.toString()))))
+                        .andExpect(status().isNotFound());
+                mvc.perform(get(base + "/history/2026-09-21/pdf")
+                        .with(jwt().jwt(j -> j.subject(owner.toString()))))
+                        .andExpect(status().isServiceUnavailable())
+                        .andExpect(jsonPath("$.code").value("REPORT_BUSY"));
+            } finally {
+                release.countDown();
+            }
+            for (var job : jobs) job.get(10, TimeUnit.SECONDS);
+        }
     }
 
     @Test void emptyDayAndMonthAreSuccessfulAndPrivate() throws Exception {

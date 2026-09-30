@@ -51,17 +51,21 @@ public class HistoryController {
     public ResponseEntity<byte[]> pdf(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID familyId, @PathVariable UUID childId,
             @Parameter(schema = @Schema(type = "string", format = "date")) @PathVariable String date) {
         long start = System.nanoTime();
-        var day = history.reportDetail(user(jwt), familyId, childId, JsonFields.date(date));
+        var reportDate = JsonFields.date(date);
+        var userId = user(jwt);
+        history.requireChildAccess(userId, familyId, childId);
+        var report = pdf.render(userId, familyId,
+                () -> history.reportDetail(userId, familyId, childId, reportDate));
+        var day = report.day();
         String slug = Normalizer.normalize(day.childName(), Normalizer.Form.NFKD).replaceAll("\\p{M}+", "")
                 .toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("^-|-$", "");
         if (slug.isBlank()) slug = "child";
         String filename = "daily-report-" + slug + "-" + day.date() + ".pdf";
-        byte[] body = pdf.render(user(jwt), familyId, day);
         log.info("Daily PDF request completed: durationMs={}",
                 java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                .body(body);
+                .body(report.bytes());
     }
     @GetMapping("/calendar")
     @Operation(summary = "List dates with activity and source flags")

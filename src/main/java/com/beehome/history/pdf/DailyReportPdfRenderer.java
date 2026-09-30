@@ -9,7 +9,9 @@ import java.io.*;
 import java.text.Normalizer;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
+import java.util.function.Supplier;
 import javax.imageio.ImageIO;
+import javax.imageio.stream.MemoryCacheImageInputStream;
 import org.apache.pdfbox.pdmodel.*;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.*;
@@ -38,14 +40,24 @@ public class DailyReportPdfRenderer {
     }
 
     public byte[] render(UUID user, UUID family, HistoryDetail day) {
+        return render(user, family, () -> day).bytes();
+    }
+
+    public RenderedReport render(UUID user, UUID family, Supplier<HistoryDetail> loadDay) {
         if (!slots.tryAcquire()) throw ReportException.busy();
-        long start = System.nanoTime();
+        long assemblyStart = System.nanoTime();
         try {
-            return generate(user, family, day, start);
+            var day = loadDay.get();
+            long renderStart = System.nanoTime();
+            log.info("Daily PDF sources assembled: durationMs={}",
+                    java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(renderStart - assemblyStart));
+            return new RenderedReport(day, generate(user, family, day, renderStart));
         } finally {
             slots.release();
         }
     }
+
+    public record RenderedReport(HistoryDetail day, byte[] bytes) {}
 
     private byte[] generate(UUID user, UUID family, HistoryDetail day, long start) {
         try (var document = new PDDocument(); var output = new LimitedOutputStream(maxBytes)) {
@@ -62,7 +74,7 @@ public class DailyReportPdfRenderer {
                             try {
                                 var content = media.content(user, family, image.id());
                                 try (var input = content.resource().getInputStream()) {
-                                    BufferedImage bitmap = ImageIO.read(input);
+                                    BufferedImage bitmap = preview(input);
                                     if (bitmap != null) {
                                         try { page.image(bitmap); }
                                         finally { bitmap.flush(); }
@@ -126,6 +138,25 @@ public class DailyReportPdfRenderer {
 
     private static final class LimitExceededException extends IOException {}
 
+    private static BufferedImage preview(InputStream input) throws IOException {
+        try (var imageInput = new MemoryCacheImageInputStream(input)) {
+            var readers = ImageIO.getImageReaders(imageInput);
+            if (!readers.hasNext()) return null;
+            var reader = readers.next();
+            try {
+                reader.setInput(imageInput, true, true);
+                // Decode only the pixels needed by the PDF instead of materializing the uploaded image.
+                int factor = Math.max(1, Math.max((reader.getWidth(0) + 799) / 800,
+                        (reader.getHeight(0) + 299) / 300));
+                var parameters = reader.getDefaultReadParam();
+                parameters.setSourceSubsampling(factor, factor, 0, 0);
+                return reader.read(0, parameters);
+            } finally {
+                reader.dispose();
+            }
+        }
+    }
+
     private static final class LimitedOutputStream extends OutputStream {
         private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         private final int limit;
@@ -185,7 +216,7 @@ public class DailyReportPdfRenderer {
             space(height + 12); y -= height;
             float rasterScale = Math.min(1f, Math.min(800f / image.getWidth(), 300f / image.getHeight()));
             BufferedImage rendered = image;
-            if (rasterScale < 1f) {
+            if (rasterScale < 1f || image.getTransparency() == Transparency.BITMASK) {
                 int pixelsWide = Math.max(1, Math.round(image.getWidth() * rasterScale));
                 int pixelsHigh = Math.max(1, Math.round(image.getHeight() * rasterScale));
                 rendered = new BufferedImage(pixelsWide, pixelsHigh, BufferedImage.TYPE_INT_RGB);

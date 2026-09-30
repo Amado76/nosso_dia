@@ -54,6 +54,10 @@ public class HistoryService {
         if (member.memberType() != MemberType.CHILD) throw FamilyMemberException.notFound();
         return member.name();
     }
+    @Transactional(readOnly = true)
+    public void requireChildAccess(UUID user, UUID family, UUID child) {
+        child(user, family, child);
+    }
     private void range(LocalDate from, LocalDate to) {
         if (from == null || to == null || from.isAfter(to) || ChronoUnit.DAYS.between(from, to) >= maxPeriodDays)
             throw new InputException();
