@@ -3,8 +3,10 @@ package com.beehome.media.service;
 import com.beehome.family.service.FamilyAuthorizationService;
 import com.beehome.media.dto.*;
 import com.beehome.media.entity.Media;
+import com.beehome.media.entity.PendingMediaDeletion;
 import com.beehome.media.exception.MediaException;
 import com.beehome.media.repository.MediaRepository;
+import com.beehome.media.repository.PendingMediaDeletionRepository;
 import com.beehome.media.storage.*;
 import com.beehome.photorecord.repository.PhotoRecordMediaRepository;
 import com.beehome.shared.exception.InputException;
@@ -26,6 +28,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class MediaService {
     private static final Logger log = LoggerFactory.getLogger(MediaService.class);
     private final MediaRepository media;
+    private final PendingMediaDeletionRepository pendingDeletions;
     private final PhotoRecordMediaRepository links;
     private final FamilyAuthorizationService authorization;
     private final MediaStorage storage;
@@ -34,12 +37,14 @@ public class MediaService {
     private final long maxBytes;
     private final long familyQuotaBytes;
     private final Duration unattachedRetention;
-    public MediaService(MediaRepository media, PhotoRecordMediaRepository links, FamilyAuthorizationService authorization,
+    public MediaService(MediaRepository media, PendingMediaDeletionRepository pendingDeletions,
+            PhotoRecordMediaRepository links, FamilyAuthorizationService authorization,
             MediaStorage storage, TransactionTemplate transactions, Clock clock,
             @Value("${media.max-bytes:10485760}") long maxBytes,
             @Value("${media.family-quota-bytes:52428800}") long familyQuotaBytes,
             @Value("${media.unattached-retention:24h}") Duration unattachedRetention) {
-        this.media=media; this.links=links; this.authorization=authorization; this.storage=storage;
+        this.media=media; this.pendingDeletions=pendingDeletions; this.links=links;
+        this.authorization=authorization; this.storage=storage;
         this.transactions=transactions; this.clock=clock; this.maxBytes=maxBytes;
         if (familyQuotaBytes <= 0) throw new IllegalArgumentException("media.family-quota-bytes must be positive");
         if (unattachedRetention.isNegative() || unattachedRetention.isZero())
@@ -103,10 +108,7 @@ public class MediaService {
         authorization.requireMembership(user, family);
         var item=media.lock(family,id).orElseThrow(MediaException::notFound);
         if (links.existsByMediaId(id) || media.usedAsBookCover(id)) throw MediaException.inUse();
-        try { storage.delete(item.getStorageKey()); }
-        catch (IOException e) { log.warn("Media deletion failed for {}", id); throw MediaException.failed(); }
-        media.delete(item);
-        media.flush();
+        stageDeletion(item);
     }
 
     @Scheduled(fixedDelayString="${media.cleanup-interval-ms:3600000}", initialDelayString="${media.cleanup-interval-ms:3600000}")
@@ -119,14 +121,16 @@ public class MediaService {
                     var item = media.lock(candidate.getFamilyId(), candidate.getId()).orElse(null);
                     if (item == null || !item.getCreatedAt().isBefore(cutoff) || links.existsByMediaId(item.getId())
                             || media.usedAsBookCover(item.getId())) return;
-                    try { storage.delete(item.getStorageKey()); }
-                    catch (IOException e) { throw MediaException.failed(); }
-                    media.delete(item);
-                    media.flush();
+                    stageDeletion(item);
                 });
             } catch (RuntimeException e) {
                 log.warn("Unused media cleanup failed for {}", candidate.getId());
             }
         }
+    }
+    private void stageDeletion(Media item) {
+        pendingDeletions.save(new PendingMediaDeletion(item.getId(), item.getStorageKey(), clock.instant()));
+        media.delete(item);
+        media.flush();
     }
 }

@@ -34,6 +34,9 @@ class PhotoMediaTests {
     }
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
+    @Autowired com.beehome.media.service.MediaService mediaService;
+    @Autowired com.beehome.media.service.PendingMediaDeletionService pendingDeletions;
+    @Autowired org.springframework.transaction.support.TransactionTemplate transactions;
     private UUID user() {
         UUID id = UUID.randomUUID();
         jdbc.update("insert into beehome.users(id,name,email,created_at,updated_at) values (?, 'Photo', ?, now(), now())", id, id + "@example.com");
@@ -242,6 +245,47 @@ class PhotoMediaTests {
                 .andExpect(status().isNoContent());
         mvc.perform(delete(family + "/media/" + first).with(jwt().jwt(j -> j.subject(owner.toString()))))
                 .andExpect(status().isNoContent());
+    }
+    @Test void failedCommitKeepsMediaMetadataAndContent() throws Exception {
+        UUID owner = user(); String family = family(owner), records = child(owner, family);
+        String mediaId = upload(owner, family);
+        UUID familyId = UUID.fromString(family.substring(family.lastIndexOf('/') + 1));
+        UUID childId = UUID.fromString(records.split("/")[5]);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> transactions.executeWithoutResult(status -> {
+            jdbc.update("insert into beehome.photo_records(id,family_id,child_id,record_date,created_by_user_id,created_at,updated_at) " +
+                    "values (?,?,?,current_date,?,now(),now())", UUID.randomUUID(), familyId, childId, owner);
+            mediaService.delete(owner, familyId, UUID.fromString(mediaId));
+        })).isInstanceOf(RuntimeException.class);
+
+        mvc.perform(get(family + "/media/" + mediaId + "/content")
+                .with(jwt().jwt(j -> j.subject(owner.toString()))))
+                .andExpect(status().isOk());
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject(
+                "select count(*) from beehome.media where id=?", Long.class, UUID.fromString(mediaId))).isEqualTo(1L);
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject(
+                "select count(*) from beehome.pending_media_deletions where media_id=?", Long.class,
+                UUID.fromString(mediaId))).isZero();
+    }
+    @Test void pendingDeletionRetriesStorageFailure() throws Exception {
+        UUID owner = user(); String family = family(owner);
+        String mediaId = upload(owner, family);
+        UUID id = UUID.fromString(mediaId);
+        String key = jdbc.queryForObject("select storage_key from beehome.media where id=?", String.class, id);
+        java.nio.file.Path file = storage.resolve(key);
+
+        mvc.perform(delete(family + "/media/" + mediaId).with(jwt().jwt(j -> j.subject(owner.toString()))))
+                .andExpect(status().isNoContent());
+        org.assertj.core.api.Assertions.assertThat(java.nio.file.Files.exists(file)).isTrue();
+        jdbc.update("update beehome.pending_media_deletions set storage_key='invalid' where media_id=?", id);
+        pendingDeletions.cleanupPendingDeletes();
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject(
+                "select count(*) from beehome.pending_media_deletions where media_id=?", Long.class, id)).isEqualTo(1L);
+        jdbc.update("update beehome.pending_media_deletions set storage_key=?, next_attempt_at=now()-interval '1 second' where media_id=?", key, id);
+        pendingDeletions.cleanupPendingDeletes();
+        org.assertj.core.api.Assertions.assertThat(java.nio.file.Files.exists(file)).isFalse();
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject(
+                "select count(*) from beehome.pending_media_deletions where media_id=?", Long.class, id)).isZero();
     }
     @Test void invalidAndCrossFamilyMediaCannotBeAttached() throws Exception {
         UUID owner = user(), other = user(); String family = family(owner), records = child(owner, family);
