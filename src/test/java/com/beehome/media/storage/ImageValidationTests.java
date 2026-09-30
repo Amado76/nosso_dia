@@ -11,6 +11,13 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 
 class ImageValidationTests {
+    @Test void configuredPixelBudgetRejectsImageBeforeDecoding() throws Exception {
+        for (byte[] image : new byte[][]{pngHeader(2, 2), fixture("lossless")}) {
+            assertThatThrownBy(() -> ImageValidation.mime(image, 3))
+                    .isInstanceOfSatisfying(MediaException.class,
+                            error -> assertThat(error.getCode()).isEqualTo("MEDIA_TOO_LARGE"));
+        }
+    }
     @Test void rejectsDimensionsBeforeDecodingPixels() throws Exception {
         for (int[] dimensions : new int[][]{{8193, 1}, {4096, 4097}, {10000, 10000}}) {
             // No pixel data: a size error proves the header is checked before decoding.

@@ -25,9 +25,10 @@ public class MediaController {
     @PostMapping(consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary="Upload a private JPEG, PNG, or WebP image",
-            description="Maximum 8192 pixels per dimension, 16777216 total pixels across frames, and 100 frames. " +
-                    "WebP canvas dimensions are also bounded. Byte limits are configured by the server. " +
-                    "Exceeding any limit, including multipart parsing limits, returns 400 MEDIA_TOO_LARGE.")
+            description="Maximum 8192 pixels per dimension, a configurable pixel budget up to 16777216 total pixels " +
+                    "across frames, and 100 frames. WebP canvas dimensions are also bounded. Byte limits are " +
+                    "configured by the server. Exceeding size limits returns 400 MEDIA_TOO_LARGE; " +
+                    "concurrency limits return 429 RATE_LIMITED with Retry-After.")
     @ApiResponse(responseCode="201", description="Media metadata", content=@Content(schema=@Schema(implementation=MediaResponse.class)))
     @ApiResponse(responseCode="400", description="Invalid or oversized image")
     @ApiResponse(responseCode="409", description="Family media storage quota exceeded")

@@ -35,17 +35,22 @@ public class MediaService {
     private final TransactionTemplate transactions;
     private final Clock clock;
     private final long maxBytes;
+    private final long maxPixels;
     private final long familyQuotaBytes;
     private final Duration unattachedRetention;
     public MediaService(MediaRepository media, PendingMediaDeletionRepository pendingDeletions,
             PhotoRecordMediaRepository links, FamilyAuthorizationService authorization,
             MediaStorage storage, TransactionTemplate transactions, Clock clock,
             @Value("${media.max-bytes:10485760}") long maxBytes,
+            @Value("${media.max-pixels:16777216}") long maxPixels,
             @Value("${media.family-quota-bytes:52428800}") long familyQuotaBytes,
             @Value("${media.unattached-retention:24h}") Duration unattachedRetention) {
         this.media=media; this.pendingDeletions=pendingDeletions; this.links=links;
         this.authorization=authorization; this.storage=storage;
         this.transactions=transactions; this.clock=clock; this.maxBytes=maxBytes;
+        if (maxPixels < 1 || maxPixels > 16_777_216)
+            throw new IllegalArgumentException("media.max-pixels must be between 1 and 16777216");
+        this.maxPixels=maxPixels;
         if (familyQuotaBytes <= 0) throw new IllegalArgumentException("media.family-quota-bytes must be positive");
         if (unattachedRetention.isNegative() || unattachedRetention.isZero())
             throw new IllegalArgumentException("media.unattached-retention must be positive");
@@ -59,7 +64,7 @@ public class MediaService {
         try { bytes=ImageValidation.read(file.getInputStream(), file.getSize(), maxBytes); }
         catch (MediaException e) { throw e; }
         catch (IOException e) { throw MediaException.failed(); }
-        String mime=ImageValidation.mime(bytes);
+        String mime=ImageValidation.mime(bytes, maxPixels);
         UUID id=UUID.randomUUID(); String key=family + "/" + id;
         String filename=file.getOriginalFilename();
         if (filename != null) filename=filename.replace('\\','/');

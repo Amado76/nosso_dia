@@ -25,7 +25,10 @@ public final class ImageValidation {
             return output.toByteArray();
         }
     }
-    public static String mime(byte[] bytes) {
+    public static String mime(byte[] bytes) { return mime(bytes, MAX_PIXELS); }
+    public static String mime(byte[] bytes, long maxPixels) {
+        if (maxPixels < 1 || maxPixels > MAX_PIXELS)
+            throw new IllegalArgumentException("media.max-pixels must be between 1 and " + MAX_PIXELS);
         String mime;
         if (bytes.length >= 8 && Arrays.equals(Arrays.copyOf(bytes, 8),
                 new byte[]{(byte)137, 80, 78, 71, 13, 10, 26, 10})) {
@@ -36,11 +39,11 @@ public final class ImageValidation {
         } else if (bytes.length >= 20 && ascii(bytes, 0, "RIFF") && ascii(bytes, 8, "WEBP")) {
             mime = "image/webp";
             if (unsigned(bytes, 4, 4) != bytes.length - 8) throw MediaException.invalidType();
-            validateWebpChunks(bytes, 12, bytes.length, true, 0, 0);
+            validateWebpChunks(bytes, 12, bytes.length, true, 0, 0, maxPixels);
         } else {
             throw MediaException.invalidType();
         }
-        decode(bytes);
+        decode(bytes, maxPixels);
         return mime;
     }
 
@@ -55,16 +58,17 @@ public final class ImageValidation {
         return value;
     }
 
-    private static long checkDimensions(long width, long height) {
+    private static long checkDimensions(long width, long height, long maxPixels) {
         if (width < 1 || height < 1) throw MediaException.invalidType();
-        if (width > MAX_DIMENSION || height > MAX_DIMENSION || width * height > MAX_PIXELS) {
+        if (width > MAX_DIMENSION || height > MAX_DIMENSION || width * height > maxPixels) {
             throw MediaException.tooLarge();
         }
         return width * height;
     }
 
-    private static long checkWebpImageDimensions(long width, long height, long expectedWidth, long expectedHeight) {
-        long pixels = checkDimensions(width, height);
+    private static long checkWebpImageDimensions(long width, long height, long expectedWidth, long expectedHeight,
+            long maxPixels) {
+        long pixels = checkDimensions(width, height, maxPixels);
         if (expectedWidth != 0 && (width != expectedWidth || height != expectedHeight)) {
             throw MediaException.invalidType();
         }
@@ -74,7 +78,7 @@ public final class ImageValidation {
     // A decoder may tolerate a VP8X container with no image chunks. Check chunk boundaries
     // and embedded dimensions too, before a decoder can allocate buffers for the bitstream.
     private static void validateWebpChunks(byte[] bytes, int start, int end, boolean allowFrames,
-            long width, long height) {
+            long width, long height, long maxPixels) {
         int images = 0;
         int frames = 0;
         long pixels = 0;
@@ -88,27 +92,27 @@ public final class ImageValidation {
                 if (!allowFrames || offset != 12 || length != 10) throw MediaException.invalidType();
                 width = 1 + unsigned(bytes, data + 4, 3);
                 height = 1 + unsigned(bytes, data + 7, 3);
-                checkDimensions(width, height);
+                checkDimensions(width, height, maxPixels);
             } else if (ascii(bytes, offset, "VP8 ")) {
                 if (length < 10 || (bytes[data] & 1) != 0 || unsigned(bytes, data + 3, 3) != 0x2a019d) {
                     throw MediaException.invalidType();
                 }
                 pixels += checkWebpImageDimensions(unsigned(bytes, data + 6, 2) & 0x3fff,
-                        unsigned(bytes, data + 8, 2) & 0x3fff, width, height);
+                        unsigned(bytes, data + 8, 2) & 0x3fff, width, height, maxPixels);
                 images++;
             } else if (ascii(bytes, offset, "VP8L")) {
                 if (length < 5 || (bytes[data] & 255) != 0x2f) throw MediaException.invalidType();
                 long dimensions = unsigned(bytes, data + 1, 4);
                 pixels += checkWebpImageDimensions(1 + (dimensions & 0x3fff),
-                        1 + ((dimensions >> 14) & 0x3fff), width, height);
+                        1 + ((dimensions >> 14) & 0x3fff), width, height, maxPixels);
                 images++;
             } else if (ascii(bytes, offset, "ANMF")) {
                 if (!allowFrames || length < 16) throw MediaException.invalidType();
                 long frameWidth = 1 + unsigned(bytes, data + 6, 3);
                 long frameHeight = 1 + unsigned(bytes, data + 9, 3);
-                pixels += checkDimensions(frameWidth, frameHeight);
+                pixels += checkDimensions(frameWidth, frameHeight, maxPixels);
                 if (++frames > MAX_FRAMES) throw MediaException.tooLarge();
-                validateWebpChunks(bytes, data + 16, (int)(data + length), false, frameWidth, frameHeight);
+                validateWebpChunks(bytes, data + 16, (int)(data + length), false, frameWidth, frameHeight, maxPixels);
             } else if (ascii(bytes, offset, "ALPH")) {
                 if (length < 1 || width == 0 || height == 0) throw MediaException.invalidType();
                 int flags = bytes[data] & 255;
@@ -116,13 +120,13 @@ public final class ImageValidation {
                 if (compression > 1 || (flags & 0xc0) != 0 || ((flags >> 4) & 3) > 1 ||
                         (compression == 0 && length != 1 + width * height)) throw MediaException.invalidType();
             }
-            if (pixels > MAX_PIXELS) throw MediaException.tooLarge();
+            if (pixels > maxPixels) throw MediaException.tooLarge();
             offset = (int)next;
         }
         if (!(images == 1 && frames == 0 || images == 0 && frames > 0)) throw MediaException.invalidType();
     }
 
-    private static void decode(byte[] bytes) {
+    private static void decode(byte[] bytes, long maxPixels) {
         try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))) {
             var readers = ImageIO.getImageReaders(input);
             if (!readers.hasNext()) throw MediaException.invalidType();
@@ -134,8 +138,8 @@ public final class ImageValidation {
                 if (count > MAX_FRAMES) throw MediaException.tooLarge();
                 long pixels = 0;
                 for (int i = 0; i < count; i++) {
-                    pixels += checkDimensions(reader.getWidth(i), reader.getHeight(i));
-                    if (pixels > MAX_PIXELS) throw MediaException.tooLarge();
+                    pixels += checkDimensions(reader.getWidth(i), reader.getHeight(i), maxPixels);
+                    if (pixels > maxPixels) throw MediaException.tooLarge();
                 }
                 boolean[] warned = {false};
                 reader.addIIOReadWarningListener((source, warning) -> {
