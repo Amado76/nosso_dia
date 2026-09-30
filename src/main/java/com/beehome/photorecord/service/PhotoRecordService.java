@@ -92,9 +92,12 @@ public class PhotoRecordService {
         if (normalized.length()>120) throw new InputException();
         List<UUID> requested=tagIds==null ? List.of() : tagIds;
         tags.requireTags(user,family,requested);
-        var slice=records.history(family,child,date!=null ? date : from==null ? LocalDate.of(1,1,1) : from,
-                date!=null ? date : to==null ? LocalDate.of(9999,12,31) : to,
-                normalized,requested.isEmpty() ? List.of(new UUID(0,0)) : requested,requested.size(),PageRequest.of(page,size));
+        LocalDate start=date!=null ? date : from==null ? LocalDate.of(1,1,1) : from;
+        LocalDate end=date!=null ? date : to==null ? LocalDate.of(9999,12,31) : to;
+        var pageRequest=PageRequest.of(page,size);
+        var slice=requested.isEmpty()
+                ? records.history(family,child,start,end,normalized,pageRequest)
+                : records.historyWithTags(family,child,start,end,normalized,requested,requested.size(),pageRequest);
         var ids=slice.getContent().stream().map(PhotoRecord::getId).toList();
         var grouped=ids.isEmpty() ? Map.<UUID,List<PhotoRecordMedia>>of() : links.findForRecords(ids).stream()
                 .collect(Collectors.groupingBy(PhotoRecordMedia::getPhotoRecordId));
