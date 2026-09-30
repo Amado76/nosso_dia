@@ -2,7 +2,7 @@
 
 Status: implemented baseline following the request to implement PDR-02.
 The policies below were adopted for this increment, with DELETE deferred.
-See [Family integration](families.md) for the implemented HTTP contract.
+See [Family integration](frontend/families.md) for the implemented HTTP contract.
 Creation quotas remain a rollout decision; no quota is enforced in this increment.
 
 ## Problem and outcome
@@ -192,7 +192,7 @@ code needed for inaccessible/missing families:
 | 500 | `INTERNAL_SERVER_ERROR` | Show a generic failure; mutation outcome may be uncertain |
 
 Error examples, field-level details, and implemented statuses appear in the
-[integration guide](families.md), consistent with [API errors](api.md#errors).
+[integration guide](frontend/families.md), consistent with [API errors](api.md#errors).
 
 ## Transactions, retries, and client behavior
 

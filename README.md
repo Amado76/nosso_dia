@@ -24,6 +24,8 @@ Keep the constitution and relevant guides aligned when changing a convention.
 
 Explore documentation relationships in the [interactive documentation graph](docs/knowledge-graph.html).
 Regenerate it after changing Markdown links with `python3 scripts/generate-doc-graph.py`.
+Frontend implementation context starts at the [frontend integration index](docs/frontend/README.md),
+which links to the implemented API contract for each feature.
 
 For task context, read the constitution and only the guide(s) relevant to the
 work. Do not reread the whole README on every task; consult only the relevant
@@ -38,42 +40,42 @@ rotating refresh sessions, SMTP password recovery, authenticated password change
 current-user retrieval, and a
 Google/Apple external identity mapping foundation. It also includes database
 migrations, OpenAPI, centralized API errors, English/Portuguese/Spanish localization,
-and automated tests. See [authentication](docs/authentication.md) and the
+and automated tests. See [authentication](docs/frontend/authentication.md) and the
 [API error and localization contract](docs/api.md#errors).
 PDR-02 provides family creation, membership-scoped listing and details, and
-OWNER/ADMIN renaming. See the [family integration guide](docs/families.md) and
+OWNER/ADMIN renaming. See the [family integration guide](docs/frontend/families.md) and
 [PDR-02 PRD](docs/pdr-02-family-authorization-prd.md). Family deletion, invitations,
 membership administration, and the remaining product domain are not implemented.
 PDR-03 provides family people profiles, active-state management, and self-account
-links. See the [family members integration guide](docs/family-members.md) and
+links. See the [family members integration guide](docs/frontend/family-members.md) and
 [PDR-03 PRD](docs/pdr-03-family-members-prd.md). Avatar writes await the media feature.
 PDR-04 provides recurring routines, date-specific notes/items, resolved daily plans,
-and family timezones. See the [planning integration guide](docs/planning.md) and
+and family timezones. See the [planning integration guide](docs/frontend/planning.md) and
 [Routines and Daily Planning PRD](docs/pdr-04-routines-daily-planning-prd.md).
 PDR-05 provides daily execution snapshots, completion, finalization, corrections,
-and paginated history. See the [execution integration guide](docs/daily-execution.md) and
+and paginated history. See the [execution integration guide](docs/frontend/daily-execution.md) and
 [Daily Execution and History PRD](docs/pdr-05-daily-execution-history-prd.md).
 PDR-06 provides family-wide study subjects, timer/manual study sessions, and
-history and summary queries. See the [study tracking integration guide](docs/study-tracking.md)
+history and summary queries. See the [study tracking integration guide](docs/frontend/study-tracking.md)
 and [Study Tracking PRD](docs/pdr-06-study-tracking-prd.md).
 PDR-07 provides private family media storage and child photo records. See the
-[photos and media integration guide](docs/photos-media.md) and
+[photos and media integration guide](docs/frontend/photos-media.md) and
 [Photos and Media PRD](docs/pdr-07-photos-media-prd.md).
 The proposed [photo record metadata and tags evolution](docs/pdr-07-photo-record-metadata-tags-evolution-prd.md)
 extends PDR-07 using the [global family tags model](docs/pdr-11-global-tags-prd.md).
 PDR-08 provides family books, child reading journeys, sessions, derived progress,
-and period metrics. See the [books and reading integration guide](docs/books-reading.md)
+and period metrics. See the [books and reading integration guide](docs/frontend/books-reading.md)
 and [Books and Reading PRD](docs/pdr-08-books-reading-prd.md).
 PDR-09 provides a calendar, child history, live period reports, extracurricular activity records, and on-demand daily PDF export over
-routine, study, reading, activity, and photo records. See the [calendar, history, and reports integration guide](docs/calendar-history-reports.md)
-and [extracurricular activities integration guide](docs/extracurricular-activities.md)
+routine, study, reading, activity, and photo records. See the [calendar, history, and reports integration guide](docs/frontend/calendar-history-reports.md)
+and [extracurricular activities integration guide](docs/frontend/extracurricular-activities.md)
 and [Calendar, History, and Reports PRD](docs/pdr-09-calendar-history-reports-prd.md).
 PDR-10 provides editable, vector-based profile scratchpads with cross-device
 synchronization. See the [Profile Scratchpad PRD](docs/pdr-10-profile-scratchpad-prd.md).
-For the implemented endpoints, see the [profile scratchpad integration guide](docs/profile-scratchpad.md).
+For the implemented endpoints, see the [profile scratchpad integration guide](docs/frontend/profile-scratchpad.md).
 PDR-11 introduces family-wide user-defined tags reusable across supported domains.
 See the [Global Family Tags PRD](docs/pdr-11-global-tags-prd.md).
-For the implemented endpoints and resource assignments, see the [global tags integration guide](docs/global-tags.md).
+For the implemented endpoints and resource assignments, see the [global tags integration guide](docs/frontend/global-tags.md).
 Feature names and API examples below illustrate organization; they are not approved
 requirements and do not authorize implementing business features.
 
@@ -238,7 +240,7 @@ Keep environment-specific configuration outside business code. Document variable
 in `.env.example`; never commit real secrets or log tokens, credentials, or sensitive
 personal data. Logs should explain meaningful events with safe identifiers and
 failure context. Authentication deployment limits are documented in
-[Authentication](docs/authentication.md).
+[Authentication](docs/frontend/authentication.md).
 
 ### Testing and evolution
 
@@ -304,8 +306,8 @@ The example environment uses ephemeral signing keys and discards password-reset
 delivery until SMTP is enabled. To send recovery emails, configure the provider,
 sender, and frontend reset URL using the variables in `.env.example`; see
 [email setup checklist](docs/email-setup.md),
-[password reset delivery](docs/authentication.md#password-reset-delivery), and
-[deployment requirements](docs/authentication.md#deployment).
+[password reset delivery](docs/frontend/authentication.md#password-reset-delivery), and
+[deployment requirements](docs/frontend/authentication.md#deployment).
 
 ### Application health check
 

@@ -10,11 +10,11 @@ protected requests, email/password registration,
 rotating refresh sessions, SMTP password recovery, and authenticated password changes. Public routes are explicitly
 listed in the security configuration; all others require authentication.
 HTTP Basic and generated development users are disabled. Swagger is public only
-when explicitly enabled for development. See [Authentication](authentication.md)
+when explicitly enabled for development. See [Authentication](frontend/authentication.md)
 for configuration, token lifecycle, notification boundaries, and deployment limits.
 Google/Apple identity mapping is prepared, but OAuth login/linking routes are not
 enabled. PDR-02 enforces persisted family memberships for family reads and renames;
-see [Family authorization](families.md).
+see [Family authorization](frontend/families.md).
 
 Do not disable CSRF or broadly allow CORS simply to make a client call pass.
 Choose CSRF behavior from the actual credential transport and browser threat model;

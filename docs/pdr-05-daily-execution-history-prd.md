@@ -1,7 +1,7 @@
 # PDR-05 — Daily Execution and History
 
 Status: implemented. This document records the PDR-05 execution requirements.
-See the [daily execution integration guide](daily-execution.md) for the implemented
+See the [daily execution integration guide](frontend/daily-execution.md) for the implemented
 API contract, limits, and concurrency decisions; OpenAPI complements that guide.
 
 ## Outcome and boundary

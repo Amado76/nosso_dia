@@ -232,7 +232,7 @@ when deploying to large or busy tables.
 
 ## Errors, localization, and client retries
 
-Errors use the shared [ProblemDetail contract](api.md#errors), with these domain codes:
+Errors use the shared [ProblemDetail contract](../api.md#errors), with these domain codes:
 `FAMILY_MEMBER_NOT_FOUND` (404), `FAMILY_MEMBER_ALREADY_LINKED` (409),
 `USER_ALREADY_LINKED_TO_FAMILY_MEMBER` (409), and `FAMILY_MEMBER_INACTIVE` (409).
 The API also uses `FAMILY_NOT_FOUND`, `FORBIDDEN`, `VALIDATION_ERROR`, and

@@ -1,8 +1,8 @@
 # Routines and daily planning — PDR-04
 
 This is the implemented UI integration contract for the
-[PDR-04 scope](pdr-04-routines-daily-planning-prd.md). Startup and backend origin
-follow the [README](../README.md); authentication follows
+[PDR-04 scope](../pdr-04-routines-daily-planning-prd.md). Startup and backend origin
+follow the [README](../../README.md); authentication follows
 [Authentication](authentication.md). Planning has no completion state, execution,
 snapshots, history, reminders, or automatic creation of future plans.
 
@@ -219,7 +219,7 @@ this is not historical execution data.
 
 ## Errors
 
-Use the shared [ProblemDetail contract](api.md#errors); codes are untranslated,
+Use the shared [ProblemDetail contract](../api.md#errors); codes are untranslated,
 details localized. Framework parsing failures may lack an application code.
 
 | Status | Code or condition |

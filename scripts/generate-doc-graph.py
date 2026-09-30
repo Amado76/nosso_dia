@@ -16,7 +16,7 @@ def main() -> None:
     markdown_files = [
         ROOT / "README.md",
         ROOT / "AGENTS.md",
-        *sorted((ROOT / "docs").glob("*.md")),
+        *sorted((ROOT / "docs").rglob("*.md")),
         *sorted((ROOT / "deploy").rglob("*.md")),
     ]
     nodes = []

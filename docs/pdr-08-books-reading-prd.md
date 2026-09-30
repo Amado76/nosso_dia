@@ -14,8 +14,8 @@ without creating a duplicate book.
 
 For future changes, compare this document with the current code and integration
 guide before identifying gaps. The current API contract is documented in
-[Books and reading API](books-reading.md), and the shared tag contract is
-documented in [Global family tags](global-tags.md).
+[Books and reading API](frontend/books-reading.md), and the shared tag contract is
+documented in [Global family tags](frontend/global-tags.md).
 
 ## Existing implementation inventory
 
@@ -155,7 +155,7 @@ mutations.
 
 ## API and documentation
 
-[Books and reading API](books-reading.md) and OpenAPI document the `query`
+[Books and reading API](frontend/books-reading.md) and OpenAPI document the `query`
 parameter, including partial, case-insensitive title and author matching,
 family scoping, and combination with repeated `tagIds` using AND semantics.
 The integration guide also describes reusing a family book across children

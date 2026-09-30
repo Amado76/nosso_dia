@@ -1,7 +1,7 @@
 # PDR-03 — Family Members
 
 Status: implemented. This document records the PDR-03 scope and decisions.
-See the [family members integration guide](family-members.md) for the implemented
+See the [family members integration guide](frontend/family-members.md) for the implemented
 UI–API contract.
 
 ## Outcome and boundaries
@@ -238,7 +238,7 @@ PostgreSQL Testcontainers integration coverage for schema constraints, family
 scoping, roles, filters, link uniqueness, and HTTP contract. Use focused tests
 first, then `./mvnw verify` with Docker available. Keep tests behavioral and
 exercise real commit/flush boundaries for constraint failures. Update OpenAPI and
-write `docs/family-members.md` as the implemented integration guide, linked from
+write `docs/frontend/family-members.md` as the implemented integration guide, linked from
 the README in the same change.
 
 Acceptance scenarios:

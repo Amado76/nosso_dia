@@ -5,7 +5,7 @@ Real email delivery is pending provider configuration and a working frontend
 reset page. No provider, sender address, or frontend URL has been chosen yet.
 
 Use this checklist when those decisions are available. The
-[authentication contract](authentication.md#password-reset-delivery) is the
+[authentication contract](frontend/authentication.md#password-reset-delivery) is the
 reference for API behavior and all delivery settings.
 
 ## 1. Collect the missing information
@@ -49,7 +49,7 @@ The frontend must:
 - Handle expired/used links by offering a new recovery request.
 - On success, clear locally stored session credentials and direct the user to login.
 
-See the [password recovery API](authentication.md#password-recovery) for JSON,
+See the [password recovery API](frontend/authentication.md#password-recovery) for JSON,
 status codes, and token handling. Opening a link must not itself reset the password.
 The backend does not serve this frontend page.
 
@@ -106,7 +106,7 @@ container alone does not apply changed environment values.
 
 For a deployed environment, set the variables in its configuration/secret store
 and redeploy or restart the application with the new environment. Also complete
-the [authentication deployment requirements](authentication.md#deployment),
+the [authentication deployment requirements](frontend/authentication.md#deployment),
 including a persistent `AUTH_SIGNING_KEY` and `AUTH_ALLOW_EPHEMERAL_KEY=false`.
 Disabling SMTP is not a production fallback: without the explicit development
 flag or an enabled delivery adapter, application startup fails.
@@ -131,7 +131,7 @@ Reset links expire 30 minutes after issuance by default (`AUTH_RESET_TTL`).
 
 The authenticated change-password API works independently of email delivery.
 Use `POST /api/auth/change-password` with a Bearer token, `currentPassword`, and
-`newPassword`; see the [authentication API](authentication.md) for the full contract.
+`newPassword`; see the [authentication API](frontend/authentication.md) for the full contract.
 
 ## 5. If an email does not arrive
 

@@ -164,7 +164,7 @@ data; concurrent creation can shift offset pages.
 
 ## Errors, concurrency, and limits
 
-Errors follow [ProblemDetail and localization](api.md#errors). Branch on `code`,
+Errors follow [ProblemDetail and localization](../api.md#errors). Branch on `code`,
 not the translated detail. Example:
 
 ```json

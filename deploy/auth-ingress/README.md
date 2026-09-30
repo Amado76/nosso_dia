@@ -89,5 +89,5 @@ replicas without a shared edge counter or a single upstream enforcement point.
 The app's local fixed-window limit remains `AUTH_REQUESTS_PER_MINUTE`, defaults to
 30 per minute per resolved client IP, and holds at most 10,000 buckets per app
 replica. It can return a localized 429 independently of NGINX. See
-[authentication abuse protection](../../docs/authentication.md#abuse-protection-and-retention)
+[authentication abuse protection](../../docs/frontend/authentication.md#abuse-protection-and-retention)
 for the API behavior and limitations.

@@ -1,8 +1,8 @@
 # Family integration — PDR-02 and PDR-04
 
-This is the implemented family API contract. The [PRD](pdr-02-family-authorization-prd.md)
+This is the implemented family API contract. The [PRD](../pdr-02-family-authorization-prd.md)
 records the scope and selected policies. Authentication follows
-[PDR-01](authentication.md); base URLs and local startup follow the [README](../README.md).
+[PDR-01](authentication.md); base URLs and local startup follow the [README](../../README.md).
 Routes are relative to the configured backend origin, with no additional prefix.
 
 ## Access and scope
@@ -37,7 +37,7 @@ must coordinate permission changes with writes and preserve one OWNER per family
 - POST and PATCH require `Content-Type: application/json` and a JSON object body.
 - Successful bodies use `application/json`; errors use `application/problem+json`.
 - Optional `Accept-Language` selects English, Portuguese, or Spanish as described
-  in [API localization](api.md#localization). Missing/unsupported language defaults
+  in [API localization](../api.md#localization). Missing/unsupported language defaults
   to English. Names are user content and are not translated.
 - Path identifiers are UUIDs. Response timestamps are ISO-8601 UTC instants.
 

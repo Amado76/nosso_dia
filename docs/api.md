@@ -96,7 +96,7 @@ status handling (including 404, 405, 415, and malformed JSON). These framework
 responses do not promise application codes or localized messages. Authentication
 and authorization filter failures use the same ProblemDetail shape with localized
 details and stable `UNAUTHENTICATED` (401) or `FORBIDDEN` (403) codes. Authentication
-rate limits return `RATE_LIMITED` (429). See [Authentication](authentication.md).
+rate limits return `RATE_LIMITED` (429). See [Authentication](frontend/authentication.md).
 
 ### Localization
 
@@ -163,4 +163,4 @@ The document MUST describe the implemented behavior and include:
 
 Verify examples and claims against controllers, DTOs, services, security rules,
 and available tests. Check links and the diff before finishing. For the existing
-authentication API, use [Authentication](authentication.md).
+authentication API, use [Authentication](frontend/authentication.md).

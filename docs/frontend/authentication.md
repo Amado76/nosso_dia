@@ -6,8 +6,8 @@ Authentication is enforced by default for future routes.
 
 This is the UI–API integration contract for authentication and current-user
 retrieval, for frontend developers and agents. Update it whenever these APIs
-change. See [local setup](../README.md#run-locally) and the shared
-[error contract](api.md#errors).
+change. See [local setup](../../README.md#run-locally) and the shared
+[error contract](../api.md#errors).
 
 ## Connection and headers
 
@@ -360,7 +360,7 @@ not opened globally. Use TLS in deployment and secure client storage.
 ## Password reset delivery
 
 To finish provider and frontend configuration later, follow the
-[email setup checklist](email-setup.md).
+[email setup checklist](../email-setup.md).
 
 `PasswordResetDelivery` is called after the database transaction commits. The SMTP
 adapter uses Spring Boot's mail starter and sends a plain-text English email with
@@ -465,7 +465,7 @@ choose their own buckets. Do not trust arbitrary `X-Forwarded-For`.
 
 This local limiter is defense in depth, not a distributed attack defense.
 Restarts reset its counters, fixed windows allow boundary bursts, and clients
-behind the same NAT still share a bucket. The [single-ingress deployment](../deploy/auth-ingress/README.md)
+behind the same NAT still share a bucket. The [single-ingress deployment](../../deploy/auth-ingress/README.md)
 places a coordinated IP limit and body-size limit before all application replicas.
 Its 429 response has the same stable `RATE_LIMITED` code and `Retry-After: 60`,
 and includes `X-BeeHome-Limit: ingress`; its English detail is not localized.
@@ -482,14 +482,14 @@ before a retention policy exists. Indexed lookups remain bounded.
 
 ## Deployment
 
-Configuration variables are listed in [.env.example](../.env.example) and forwarded
-by [Compose](../compose.yaml). Defaults are 15-minute access, 30-day refresh,
+Configuration variables are listed in [.env.example](../../.env.example) and forwarded
+by [Compose](../../compose.yaml). Defaults are 15-minute access, 30-day refresh,
 30-minute reset tokens, a 5-minute reset cooldown, and 30 auth requests/minute/IP.
 Access lifetime must be between one second and one hour; other durations must
 be positive. HTTP Basic and the generated Spring development user are removed.
 `AUTH_TRUSTED_PROXY_ADDRESS` defaults to empty. The local Compose stack does not
 have an ingress and should leave it empty. For multiple application replicas,
-use the [ingress deployment](../deploy/auth-ingress/README.md) or equivalent
+use the [ingress deployment](../../deploy/auth-ingress/README.md) or equivalent
 coordinated edge protection before exposing authentication routes.
 
 Local development explicitly sets `AUTH_ALLOW_EPHEMERAL_KEY=true`. Each restart

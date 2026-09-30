@@ -13,7 +13,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 @RestController
 @SecurityRequirement(name="bearerAuth")
-@ApiResponse(responseCode="400",description="Invalid fields, page range, duration, dates, media, or pagination; see docs/books-reading.md")
+@ApiResponse(responseCode="400",description="Invalid fields, page range, duration, dates, media, or pagination; see docs/frontend/books-reading.md")
 @ApiResponse(responseCode="401",description="Bearer authentication required")
 @ApiResponse(responseCode="403",description="Writes require OWNER or ADMIN")
 @ApiResponse(responseCode="404",description="Family, child, book, journey, or session inaccessible")

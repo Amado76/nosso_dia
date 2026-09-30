@@ -11,7 +11,7 @@ define report selection or change how image files are stored.
 
 This document extends [PDR-07 — Photos and Media](pdr-07-photos-media-prd.md)
 and adopts the family-wide tag model in [PDR-11 — Global Family Tags](pdr-11-global-tags-prd.md).
-The existing [Photos and Media API guide](photos-media.md) remains the contract
+The existing [Photos and Media API guide](frontend/photos-media.md) remains the contract
 for media upload, private content access, authorization, pagination, and current
 photo-record routes. Any implementation that changes that contract must update
 that guide and OpenAPI in the same change.
@@ -127,7 +127,7 @@ Keep existing page response shape, size bounds, and deterministic order from the
 photo integration guide. If query semantics or mutation routes require API
 changes, document exact routes, method, authorization, headers, request and
 response examples, nullability, validation, status/error codes, retry behavior,
-and client flow in `docs/photos-media.md`, then update OpenAPI. Document that
+and client flow in `docs/frontend/photos-media.md`, then update OpenAPI. Document that
 date is the event date, tags are family-wide classifications, multiple tag
 filters use AND, and tags do not select report photos.
 
