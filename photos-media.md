@@ -1,0 +1,82 @@
+# Photos and media API
+
+PDR-07 stores private family images and dated photo records for children. The API base is `/api`. Send `Authorization: Bearer <access-token>` on every request; the current caller must be a member of `{familyId}`. A missing family membership, a family resource belonging elsewhere, or an inaccessible child returns a safe 404. All current family roles can use these routes. No public file URLs or image transforms are available.
+
+Set `MEDIA_STORAGE_DIRECTORY` to a private directory outside the repository and web root. `MEDIA_MAX_BYTES` defaults to 10485760 (10 MiB); `MEDIA_MAX_REQUEST_BYTES` defaults to 11534336 to allow multipart overhead. `MEDIA_MAX_PIXELS` defaults to 16777216 and can be lowered to any positive value. `MEDIA_MAX_CONCURRENT_UPLOADS` defaults to 2 and must be positive. The pixel budget applies to each image and the concurrency budget applies per application process; size them from concurrent upload load tests against the deployment JVM heap. `MEDIA_FAMILY_QUOTA_BYTES` defaults to 52428800 (50 MiB) when unset and must be positive. It limits the sum of stored media bytes for each family, including attached media. Changing it changes the limit for existing families at application restart; existing files are not deleted if the limit is lowered. The server creates the directory as needed. Upload bytes are stored there; PostgreSQL holds metadata and associations. Back up both together. The default directory is `${user.home}/.beehome/media`.
+
+`MEDIA_UNATTACHED_RETENTION` defaults to `24h`, and `MEDIA_CLEANUP_INTERVAL_MS` defaults to `3600000` (one hour). The cleanup job examines at most 100 old, unattached assets per run and rechecks references under a media row lock. Files used by photo records or book covers are retained. Deletions are recorded in a durable pending queue in the same transaction as metadata removal. `MEDIA_DELETE_RETRY_INTERVAL_MS` defaults to `60000` (one minute); each run processes at most 100 due file deletions, with a five-minute delay after a storage failure. The queue survives restarts. Back up the database and media directory together, and keep the queue until the corresponding files are gone. `MEDIA_UPLOAD_REQUESTS_PER_MINUTE` defaults to 10 per remote address and family in each application process. The filter runs before multipart parsing and returns 429 `RATE_LIMITED` with `Retry-After: 60` for the minute limit or `Retry-After: 1` when all concurrent upload slots are occupied. Deployments with multiple replicas need a shared ingress limit at the edge; the concurrency budget applies independently in each process.
+
+When running the Compose `app` profile, `/var/lib/beehome/media` is backed by the `media-data` named volume and owned by the application user. The `.env.example` path applies when running the application directly on the host.
+
+For load tests, send simultaneous images near both configured byte and pixel limits. Track heap used/committed and GC activity through the JVM Memory MXBean or Java Flight Recorder, and compare with upload latency and HTTP status from access logs. If detailed timing is needed, enable DEBUG logging for `com.beehome.media.security.MediaUploadRateLimitFilter` during the test; its `durationMs` includes multipart parsing, validation, storage, and metadata writes. Choose budgets that leave heap headroom for other requests while keeping upload latency acceptable.
+
+## Routes
+
+| Method | Path after `/api` | Success | Purpose |
+| --- | --- | --- | --- |
+| POST | `/families/{familyId}/media` | 201 | Upload one private image. |
+| GET | `/families/{familyId}/media` | 200 | List family media. |
+| GET | `/families/{familyId}/media/{mediaId}/content` | 200 | Read private image bytes. |
+| DELETE | `/families/{familyId}/media/{mediaId}` | 204 | Delete unused media metadata and queue byte removal. |
+| POST | `/families/{familyId}/children/{childId}/photo-records` | 201 | Create a dated record. |
+| GET | `/families/{familyId}/children/{childId}/photo-records` | 200 | List dated records. |
+| GET | `/families/{familyId}/children/{childId}/photo-records/{photoRecordId}` | 200 | Read one record. |
+| PUT | `/families/{familyId}/children/{childId}/photo-records/{photoRecordId}` | 200 | Replace all editable fields. |
+| PATCH | `/families/{familyId}/children/{childId}/photo-records/{photoRecordId}` | 200 | Edit date, description, or tags. |
+| POST | `/families/{familyId}/children/{childId}/photo-records/{photoRecordId}/media` | 200 | Insert or append an image. |
+| PUT | `/families/{familyId}/children/{childId}/photo-records/{photoRecordId}/media` | 200 | Replace or reorder images. |
+| PUT | `/families/{familyId}/children/{childId}/photo-records/{photoRecordId}/media/{mediaId}` | 200 | Replace one image in place. |
+| DELETE | `/families/{familyId}/children/{childId}/photo-records/{photoRecordId}/media/{mediaId}` | 200 | Remove one image. |
+| DELETE | `/families/{familyId}/children/{childId}/photo-records/{photoRecordId}` | 204 | Delete record and links; keep media. |
+
+All path IDs are UUIDs. `childId` identifies a family member of type `CHILD`. Every photo record write, including PATCH and image edits, requires that child to be active. JSON calls use `Content-Type: application/json`. Upload uses `multipart/form-data` with one required part named `file`. The multipart filename and declared content type are untrusted; the server derives MIME type from the bytes. Accepted formats are JPEG, PNG, and WebP. Empty, invalid, spoofed, and oversized uploads fail. Before decoding, the server limits each image or animation frame to 8192 pixels per dimension and the total across all frames to the configured pixel budget (at most 16,777,216 pixels). WebP canvases must also fit these dimension and pixel limits; animations are limited to 100 frames. These limits apply independently of the configurable byte limit and return 400 `MEDIA_TOO_LARGE`. Every frame must decode successfully. WebP validation uses the TwelveMonkeys ImageIO decoder plus container and payload checks; file signatures alone are insufficient. Storage keys, original filenames, and local paths are absent from responses.
+
+## Media
+
+Example upload: `POST /api/families/0d20eb0d-f32c-4be1-ae88-1922cd763891/media` with a multipart `file` part containing image bytes.
+
+201 response:
+
+```json
+{"id":"5481374b-c772-4c7e-a726-7f08326bd6a1","type":"IMAGE","mimeType":"image/png","sizeBytes":248631,"createdAt":"2026-09-23T15:00:00Z"}
+```
+
+Fields are required and non-null. `type` is currently always `IMAGE`; `sizeBytes` is the actual positive byte count. Store `id` for later attachment. Each upload creates a new asset, even if the same bytes are retried.
+
+`GET /families/{familyId}/media` accepts `unattached` (`true` or `false`, default `false`), `page` (default 0), and `size` (default 20, range 1–100). Page numbers must be nonnegative. Items sort by `createdAt DESC, id DESC`. The response is `{"items":[<media response>],"page":0,"size":20,"hasNext":false}`. `unattached=true` selects assets with no photo record link and no book cover reference. Retain the asset ID and use this filter to find uploads left unattached after an interrupted client flow.
+
+`GET /families/{familyId}/media/{mediaId}/content` returns image bytes with validated `Content-Type`, `Content-Disposition: inline`, and `Cache-Control: private, no-store`. The client should use an authenticated request and handle the response as a blob. An interrupted transfer should be discarded and retried; it does not change metadata. A storage read failure returns `MEDIA_UPLOAD_FAILED` when it occurs before streaming starts. A connection or storage failure after headers are sent may terminate the stream; retry the GET.
+
+`DELETE /families/{familyId}/media/{mediaId}` returns an empty 204 after the metadata deletion and pending file deletion commit. It returns `MEDIA_IN_USE` while any photo record or book cover references the asset. Deleting a photo record does not remove the asset immediately; the cleanup job stages deletion after the retention period if it remains unattached. Deletion releases quota when the metadata row is removed. File removal happens later; storage failures are retried from the durable queue. A failed database commit leaves both the metadata and file intact. A lost 204 response can be resolved by listing media; retrying an already committed DELETE returns `MEDIA_NOT_FOUND`.
+
+## Photo records
+
+Create and full replacement use a complete JSON body:
+
+```json
+{"date":"2026-09-21","description":"  First bike ride  ","mediaIds":["5481374b-c772-4c7e-a726-7f08326bd6a1"],"tagIds":["c6a0fd2b-4b9a-49ca-9562-a71a697cf65a"]}
+```
+
+`date` is a required ISO `yyyy-MM-dd` event date, independent of upload or creation time. `description` is optional and nullable, trimmed, and limited to 2000 characters after trimming; blank becomes null. `mediaIds` is required and contains 1–4 unique UUIDs in display order. The total across all photo records for one child and date cannot exceed four images; create, full replacement, date changes, and image changes enforce this rule while serializing writes on the child row. Every asset must exist in the same family and have type `IMAGE`. Uploaded assets can appear in multiple records. `tagIds` is optional and contains 0–100 unique IDs of existing family-wide tags. Omitted or null `tagIds` means no tags on POST and PUT. Tags classify records but do not select images for reports. The caller identity supplies the creator. PUT replaces date, description, images, and tags atomically. It can be retried after a lost response.
+
+201 create or 200 read/update response:
+
+```json
+{"id":"8bfd9350-df22-48ec-b69b-f023aa6eae15","childId":"a799e711-5aca-465c-b677-8b9394b8bd94","date":"2026-09-21","description":"First bike ride","tags":[{"id":"c6a0fd2b-4b9a-49ca-9562-a71a697cf65a","name":"Family","color":null}],"media":[{"id":"5481374b-c772-4c7e-a726-7f08326bd6a1","type":"IMAGE","position":0}],"createdAt":"2026-09-23T15:00:00Z","updatedAt":"2026-09-23T15:00:00Z"}
+```
+
+`description` and tag `color` may be null. `tags` is always an array sorted by name then ID; each summary has `id`, `name`, and `color`. `media` is nonempty and ordered by zero-based `position`. Other response fields are required and non-null. Fetch each image through the private content route; no direct URL is returned.
+
+List accepts exact `date`, inclusive `from` and `to` ISO dates, case-insensitive description `query` (maximum 120 characters after trimming), repeated `tagIds`, `page` (default 0), and `size` (default 20, range 1–100). Empty or omitted `query` does not filter. `date` cannot be combined with either bound; `from > to` is invalid. Each requested tag must be assigned (AND). Duplicate tag IDs are invalid; unknown or foreign-family tags return `TAG_NOT_FOUND`. All filters apply before pagination. The page has `items`, `page`, `size`, and `hasNext`. Records sort by `date DESC, createdAt DESC, id DESC`. An empty page has `items: []` and `hasNext: false`.
+
+`PATCH /{photoRecordId}` accepts one or more of `date`, `description`, and `tagIds`. Omitted fields retain their values. `description: null` or blank clears the description; `tagIds: []` clears tags. `date` cannot be null. For example, `{"description":null,"tagIds":[]}` leaves date and images intact. Unknown fields and empty objects return `VALIDATION_ERROR`.
+
+Image edits keep record metadata and tags. `POST /{photoRecordId}/media` accepts `{"mediaId":"<UUID>","position":0}`. Position is optional and defaults to append; a supplied position inserts at that zero-based index, including current list length. `PUT /{photoRecordId}/media` accepts `{"mediaIds":["<UUID>","<UUID>"]}` and replaces the complete ordered image list, which also supports reorder. `PUT /{photoRecordId}/media/{mediaId}` accepts only `{"mediaId":"<new UUID>"}` and replaces that image at its current position; `position` is rejected with `VALIDATION_ERROR`. `DELETE /{photoRecordId}/media/{mediaId}` removes one image and closes the position gap. These operations return the full updated record with 200. The final image cannot be removed; the list and daily total cannot exceed four; duplicate IDs are rejected. A missing association returns `PHOTO_RECORD_INVALID_MEDIA`. Validation fails atomically and the record ID remains stable. Unlinked media remains available.
+
+GET verifies the complete family, child, and record path. DELETE of a record returns an empty 204, removes its tag and image associations, and retains media assets. Deleting a family tag removes only its associations. Use `unattached=true` to find unused assets afterward.
+
+## Errors and client flow
+
+Errors use `application/problem+json` with `status`, localized `detail`, and stable `code`. Set `Accept-Language` to `en`, `pt`, or `es`; branch on `code`. Field and date validation errors use 400 `VALIDATION_ERROR`. Image validation uses 400 `MEDIA_INVALID_TYPE` or `MEDIA_TOO_LARGE`. Exceeding multipart limits also returns 400 `MEDIA_TOO_LARGE`. A missing or cross-family media resource uses 404 `MEDIA_NOT_FOUND`; a referenced asset uses 409 `MEDIA_IN_USE`; exceeding family storage uses 409 `MEDIA_QUOTA_EXCEEDED`; storage failure uses 500 `MEDIA_UPLOAD_FAILED`. Upload rate limiting returns 429 `RATE_LIMITED`. A missing record uses 404 `PHOTO_RECORD_NOT_FOUND`; a missing, cross-family, or non-image attachment uses 400 `PHOTO_RECORD_INVALID_MEDIA`. Unknown or cross-family tags use 404 `TAG_NOT_FOUND`. Family and child safe-not-found responses retain their existing codes. Missing authentication uses 401 `UNAUTHENTICATED`. All current family roles can use photo routes.
+
+A client uploads each image, saves media IDs, optionally lists or creates tags through the [global tags API](global-tags.md), then creates the record. Attach uploads within the retention period. On `MEDIA_QUOTA_EXCEEDED`, delete unused assets or wait for cleanup before retrying; lowering the configured quota may also prevent new uploads until usage falls below it. On 429, wait for `Retry-After` before retrying. On an upload timeout, inspect unattached media before uploading again; duplicate uploads remain possible. On a record create timeout, query child history before retrying POST because it can create another record. After an update timeout, fetch the record and retry an idempotent PUT or PATCH if needed. Repeating an unchanged PUT or PATCH preserves `updatedAt`. A repeated image insertion POST returns a duplicate-ID validation error if the first attempt succeeded. Keep access tokens in the existing authentication flow. Unsupported flows include video/audio, public links, image editing, thumbnails, album sharing, and report selection.
