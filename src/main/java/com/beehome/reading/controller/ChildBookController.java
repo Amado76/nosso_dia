@@ -30,7 +30,7 @@ public class ChildBookController {
         var result=service.createJourney(user(jwt),familyId,childId,body);
         return ResponseEntity.created(URI.create("/api/families/"+familyId+"/children/"+childId+"/books/"+result.id())).body(result);
     }
-    @GetMapping @Operation(summary="Page child journeys with optional status; includes derived progress")
+    @GetMapping @Operation(summary="Page child journeys with optional status; includes derived progress", description="Zero-based page times size cannot exceed 10,000; size must be 1–100.")
     public ReadingPage<ChildBookDetail> list(@AuthenticationPrincipal Jwt jwt,@PathVariable UUID familyId,@PathVariable UUID childId,
             @RequestParam(required=false) ChildBookStatus status,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size) {
         return service.listJourneys(user(jwt),familyId,childId,status,page,size);

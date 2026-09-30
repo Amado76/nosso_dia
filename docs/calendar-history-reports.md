@@ -56,10 +56,13 @@ day; other session fields are available through the reading API.
 Only the reading list is paginated by `readingPage` (default 0, minimum 0) and
 `readingSize` (default 20, range 1–100). `readingPage`, `readingSize`, and
 `readingHasNext` are always present, including on empty days and pages. Sessions
-are ordered by creation timestamp descending, then session UUID descending.
-Increment `readingPage` while `readingHasNext` is true to fetch all entries;
-other sources remain the same for that day. Offsets above 2,147,483,646 are
-rejected. The response does not silently truncate reading activity.
+are ordered by date descending, creation timestamp descending, then session UUID descending.
+Increment `readingPage` while `readingHasNext` is true within the supported
+offset range; other sources remain the same for that day. The requested reading offset
+(`readingPage * readingSize`) must be at most 10,000; larger offsets return
+`400 VALIDATION_ERROR`. Days with more than 10,100 reading sessions cannot be
+fully traversed through this endpoint. The response does not silently truncate
+reading activity.
 
 ### Calendar
 

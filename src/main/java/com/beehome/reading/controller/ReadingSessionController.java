@@ -30,7 +30,7 @@ public class ReadingSessionController {
         var result=service.createSession(user(jwt),familyId,childId,body);
         return ResponseEntity.created(URI.create("/api/families/"+familyId+"/children/"+childId+"/reading-sessions/"+result.id())).body(result);
     }
-    @GetMapping("/reading-sessions") @Operation(summary="Page reading by optional inclusive dates and bookId; date/createdAt/id descending, size 1–100")
+    @GetMapping("/reading-sessions") @Operation(summary="Page reading by optional inclusive dates and bookId; date/createdAt/id descending, size 1–100", description="Zero-based page times size cannot exceed 10,000.")
     public ReadingPage<ReadingSessionDetail> list(@AuthenticationPrincipal Jwt jwt,@PathVariable UUID familyId,@PathVariable UUID childId,
             @RequestParam(required=false) String from,@RequestParam(required=false) String to,@RequestParam(required=false) UUID bookId,
             @RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size) {

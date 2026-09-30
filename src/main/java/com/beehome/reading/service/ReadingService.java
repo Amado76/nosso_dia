@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ReadingService {
+    private static final int MAX_LIST_OFFSET = 10_000;
     private final BookRepository books;
     private final BookTagRepository bookTags;
     private final TagService tags;
@@ -52,7 +53,7 @@ public class ReadingService {
         return journeys.findByFamilyIdAndChildIdAndId(family,child,id).orElseThrow(ReadingException::missingJourney);
     }
     private static PageRequest page(int page,int size) {
-        if(page<0 || size<1 || size>100 || (long)page*size>Integer.MAX_VALUE-1) throw new InputException();
+        if(page<0 || size<1 || size>100 || (long)page*size>MAX_LIST_OFFSET) throw new InputException();
         return PageRequest.of(page,size);
     }
     private void cover(UUID user,UUID family,UUID id) {

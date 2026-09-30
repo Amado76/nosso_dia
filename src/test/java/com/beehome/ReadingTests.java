@@ -52,6 +52,17 @@ class ReadingTests {
                 .andReturn().getResponse().getContentAsString();
         return com.jayway.jsonpath.JsonPath.read(json, "$.id");
     }
+    @Test void readingListsRejectOffsetsBeyondTenThousandRows() throws Exception {
+        UUID user=user(); String family=family(user), child=member(user,family);
+        for (String route : java.util.List.of(family+"/books", child+"/books", child+"/reading-sessions")) {
+            mvc.perform(get(route).param("page","101").param("size","100")
+                    .with(jwt().jwt(j->j.subject(user.toString()))))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+            mvc.perform(get(route).param("page","10000").param("size","1")
+                    .with(jwt().jwt(j->j.subject(user.toString()))))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0));
+        }
+    }
     @Test void createsTitleOnlyAndFullBooksAndPreservesHistory() throws Exception {
         UUID user=user(); String family=family(user), child=member(user,family);
         String book=create(user,family+"/books", "{\"title\":\"The Hobbit\"}");

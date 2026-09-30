@@ -29,7 +29,7 @@ public class BookController {
         var result=service.createBook(user(jwt),familyId,body);
         return ResponseEntity.created(URI.create("/api/families/"+familyId+"/books/"+result.id())).body(result);
     }
-    @GetMapping @Operation(summary="Page or search family books, newest first; size 1–100", description="Optional query matches a title or author substring case-insensitively within the family. Repeated tagIds require every requested family tag and combine with query before pagination.")
+    @GetMapping @Operation(summary="Page or search family books, newest first; size 1–100", description="Zero-based page times size cannot exceed 10,000. Optional query matches a title or author substring case-insensitively within the family. Repeated tagIds require every requested family tag and combine with query before pagination.")
     public ReadingPage<BookResponse> list(@AuthenticationPrincipal Jwt jwt,@PathVariable UUID familyId,
             @Parameter(description="Optional title or author substring; case-insensitive, blank lists all family books") @RequestParam(required=false) String query,
             @RequestParam(required=false) java.util.List<UUID> tagIds,

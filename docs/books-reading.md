@@ -177,8 +177,12 @@ all other fields are non-null. Creator and createdAt survive replacement.
 
 All list responses use `{"items":[],"page":0,"size":20,"hasNext":false}` with
 resource response objects in items. No total count is calculated. `page` defaults
-to 0 and must be nonnegative; `size` defaults to 20 and must be 1–100. Offsets above
-2147483646 are invalid. Ordering is fixed, with UUID as the final tie-breaker:
+to 0 and must be nonnegative; `size` defaults to 20 and must be 1–100. The
+requested offset (`page * size`) must be at most 10,000; larger offsets return
+`400 VALIDATION_ERROR`. Clients can narrow session history with `from`, `to`,
+and `bookId` when a full history exceeds this window. A filtered result with
+more than 10,100 entries cannot be fully traversed through this endpoint;
+there is no cursor. Ordering is fixed, with UUID as the final tie-breaker:
 
 - Books and journeys: `createdAt DESC, id DESC`. Journeys accept optional `status`.
 - Books accept optional `query` as a literal, case-insensitive substring of title

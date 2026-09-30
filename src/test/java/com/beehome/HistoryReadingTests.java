@@ -86,7 +86,7 @@ class HistoryReadingTests {
         mvc.perform(get(child+"/reports?from=2026-09-01&to=2026-09-30").with(jwt().jwt(j->j.subject(user.toString()))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.reading.sessions").value(1))
                 .andExpect(jsonPath("$.reading.totalMinutes").value(0)).andExpect(jsonPath("$.reading.pagesRead").value(0));
-        for(String query:java.util.List.of("readingSize=101","readingPage=-1","readingPage=2147483647"))
+        for(String query:java.util.List.of("readingSize=101","readingPage=-1","readingPage=101&readingSize=100","readingPage=2147483647"))
             mvc.perform(get(child+"/history/2026-09-20?"+query).with(jwt().jwt(j->j.subject(user.toString())))).andExpect(status().isBadRequest());
     }
 
