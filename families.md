@@ -46,11 +46,10 @@ must coordinate permission changes with writes and preserve one OWNER per family
 `POST /api/families`
 
 ```json
-{"name":"Amado Family","timezone":"America/Asuncion"}
+{"name":"Amado Family"}
 ```
 
-Accepted fields are `name` and `timezone`, both required, non-null JSON strings.
-`timezone` must be a valid IANA identifier; see [Family timezone](#family-timezone).
+The only accepted field is `name`, a required, non-null JSON string.
 For `name`, Surrounding
 whitespace is stripped using Java `String.strip()`. The normalized value must not
 be blank and must contain at most 120 UTF-16 code units (supplementary characters
@@ -64,7 +63,6 @@ Returns `201 Created`, with `Location: /api/families/{id}` and this representati
 {
   "id":"d6b68b76-283b-46f6-a65d-8d38ce6d1d13",
   "name":"Amado Family",
-  "timezone":"America/Asuncion",
   "myRole":"OWNER",
   "createdAt":"2026-09-21T12:00:00Z",
   "updatedAt":"2026-09-21T12:00:00Z"
@@ -75,10 +73,9 @@ Returns `201 Created`, with `Location: /api/families/{id}` and this representati
 | --- | --- |
 | `id` | Server-generated UUID identifying the family |
 | `name` | Normalized family name |
-| `timezone` | Persisted IANA timezone, e.g. `America/Asuncion` |
 | `myRole` | Caller's role in this family: `OWNER`, `ADMIN`, or `MEMBER` |
 | `createdAt` | Creation instant |
-| `updatedAt` | Most recent persisted name/timezone change instant |
+| `updatedAt` | Most recent persisted name change instant |
 
 All six fields are required and non-null. No user identities, emails, people, or
 membership collections are included. Creation persists the family and initial
@@ -108,7 +105,6 @@ Returns `200 OK`:
   "items":[{
     "id":"d6b68b76-283b-46f6-a65d-8d38ce6d1d13",
     "name":"Amado Family",
-  "timezone":"America/Asuncion",
     "myRole":"OWNER",
     "createdAt":"2026-09-21T12:00:00Z",
     "updatedAt":"2026-09-21T12:00:00Z"
@@ -136,35 +132,34 @@ including the caller's current `myRole`.
 {"name":"Updated Family Name"}
 ```
 
-Both `name` and `timezone` are writable using their creation rules. Each is
-optional in PATCH: omission preserves its existing value, while explicit null
-is invalid. Empty objects and missing bodies are invalid. Success returns
+Only `name` is writable using its creation rules. It is required in PATCH;
+explicit null, empty objects, and missing bodies are invalid. Success returns
 `200 OK` with the updated representation. `updatedAt` changes only when the
 normalized persisted state changes. Repeated identical PATCHes preserve it.
 No ETags or conflict preconditions are supported. Concurrent edits use last
 committed write wins. All four endpoints return bodies; none returns 204.
 
-## Family timezone
+## Time handling
 
-PDR-04 requires a valid IANA zone accepted by Java `ZoneId.of` and present in the
-runtime timezone database, such as `America/Asuncion`, `Europe/Lisbon`, or `UTC`.
-Offset-only values (`+03:00`, `UTC+03:00`), unknown zones, null, and blank are
-invalid. Zone identifiers are case-sensitive and are not trimmed or inferred.
-Family creation requires timezone. OWNER/ADMIN can change only timezone with
-`{"timezone":"Europe/Lisbon"}`, or change it together with name.
+Families have no timezone setting. Create and PATCH bodies accept only `name`;
+legacy `timezone` fields are unknown input and return 400. Family responses do
+not include timezone. The UI must not ask users to configure one.
 
-Flyway V7 backfills existing families to UTC without changing their audit times.
-UTC is a neutral migration value, not an inferred location: the UI should ask
-the user to select the intended zone. There is no database default for future
-family inserts. New family creation clients must send timezone.
-Changes affect local-day interpretation for planning; stored dates and wall
-times are never rewritten. See [planning](planning.md).
+Audit timestamps remain UTC instants. Calendar dates and routine wall times
+are unchanged. The frontend automatically sends the current device UTC offset
+when a request needs the local day; see [Time handling](time.md).
+
+Flyway V21 removes the legacy family timezone column. Deploy the backend and
+updated clients together: old clients that send timezone are incompatible.
+Existing names, memberships, dates, wall times, and audit instants are preserved.
+Back up before applying V21; recover by a coordinated application/database
+restore if the removed settings are needed. Never edit applied migrations.
 
 ## Errors and client handling
 
 | HTTP | Stable code / condition | Client action |
 | --- | --- | --- |
-| 400 | `VALIDATION_ERROR`: name/timezone constraints, empty PATCH, or page/size bounds | Correct the input; show safe field feedback when available |
+| 400 | `VALIDATION_ERROR`: name constraints, empty PATCH, or page/size bounds | Correct the input; show safe field feedback when available |
 | 400 | Invalid JSON, wrong value type, unknown body field, invalid UUID, malformed query syntax, missing body | Fix the request; framework responses may omit an application code |
 | 401 | `UNAUTHENTICATED`: missing/invalid/expired access token or unavailable current user | Follow PDR-01 renewal/login flow |
 | 403 | `FORBIDDEN`: MEMBER attempting to edit its family | Show insufficient permissions; refreshing does not grant access |
@@ -214,9 +209,9 @@ present for every 400 response.
 ## UI flow, retries, and limitations
 
 1. Authenticate through PDR-01 and load the family list using the access token.
-2. If empty, offer family creation with a timezone selector. Otherwise show a selector; users may have
+2. If empty, offer family creation with a name only. Otherwise show a selector; users may have
    multiple families. After creation, select the returned family ID.
-3. Load details when selecting a family. Use `myRole` to present name/timezone controls,
+3. Load details when selecting a family. Use `myRole` to present name editing controls,
    while treating backend permission responses as authoritative.
 4. Store a selected ID only as navigation state; it is neither a token claim nor
    a field on the user. Revalidate stored selections and clear unavailable ones.
@@ -226,7 +221,7 @@ present for every 400 response.
 GET can be retried. There are no idempotency keys: a POST retry after a timeout
 may create a duplicate family. Reload and let the user reconcile before creating
 again; duplicate names mean a matching name alone is not proof of the outcome.
-PATCH assigns name and/or timezone but retrying can overwrite another writer's change; reload
+PATCH assigns name but retrying can overwrite another writer's change; reload
 and confirm the intended edit first. Follow PDR-01's bounded refresh behavior for
 401 and do not automatically repeat ambiguous mutations or refresh on 403/404.
 
