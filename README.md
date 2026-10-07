@@ -22,8 +22,6 @@ means the default unless a concrete reason justifies a deviation; MAY means opti
 An explicit task can require an exception; explain its reason and consequences.
 Keep the constitution and relevant guides aligned when changing a convention.
 
-Explore documentation relationships in the [interactive documentation graph](docs/knowledge-graph.html).
-Regenerate it after changing Markdown links with `python3 scripts/generate-doc-graph.py`.
 Frontend implementation context starts at the [frontend integration index](docs/frontend/README.md),
 which links to the implemented API contract for each feature.
 
@@ -49,8 +47,8 @@ membership administration, and the remaining product domain are not implemented.
 PDR-03 provides family people profiles, active-state management, and self-account
 links. See the [family members integration guide](docs/frontend/family-members.md) and
 [PDR-03 PRD](docs/pdr-03-family-members-prd.md). Avatar writes await the media feature.
-PDR-04 provides recurring routines, date-specific notes/items, resolved daily plans,
-and family timezones. See the [planning integration guide](docs/frontend/planning.md) and
+PDR-04 provides recurring routines, date-specific notes/items, and resolved daily plans.
+See the [planning integration guide](docs/frontend/planning.md) and
 [Routines and Daily Planning PRD](docs/pdr-04-routines-daily-planning-prd.md).
 PDR-05 provides daily execution snapshots, completion, finalization, corrections,
 and paginated history. See the [execution integration guide](docs/frontend/daily-execution.md) and
@@ -362,3 +360,5 @@ Migration V1 creates the legacy `nosso_dia` schema, and V8 renames it to `beehom
 `public`. Hibernate validates mappings without creating or changing tables.
 Subsequent migrations create users, refresh/reset tokens, external identities,
 families, memberships, family members, family timezones, routines, and daily plans.
+V21 removes the legacy family timezone column. Local-day operations now use the
+device UTC offset; see [Time handling](docs/frontend/time.md).

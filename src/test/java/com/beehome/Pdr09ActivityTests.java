@@ -24,7 +24,7 @@ class Pdr09ActivityTests {
         jdbc.update("insert into beehome.users(id,name,email,created_at,updated_at) values (?, 'Owner', ?, now(), now())", owner, owner + "@example.com");
         var auth = jwt().jwt(j -> j.subject(owner.toString()));
         String family = mvc.perform(post("/api/families").with(auth).contentType("application/json")
-                .content("{\"name\":\"Family\",\"timezone\":\"America/Asuncion\"}"))
+                .content("{\"name\":\"Family\"}"))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         String familyId = com.jayway.jsonpath.JsonPath.read(family, "$.id");
         String base = "/api/families/" + familyId;
@@ -106,7 +106,7 @@ class Pdr09ActivityTests {
         mvc.perform(get(base + "/children/" + childId + "/history/2026-09-21/pdf")
                 .with(jwt().jwt(j -> j.subject(outsider.toString())))).andExpect(status().isNotFound());
         String otherFamily = mvc.perform(post("/api/families").with(auth).contentType("application/json")
-                .content("{\"name\":\"Other\",\"timezone\":\"America/Asuncion\"}"))
+                .content("{\"name\":\"Other\"}"))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         String otherBase = "/api/families/" + com.jayway.jsonpath.JsonPath.<String>read(otherFamily, "$.id");
         String foreignTag = mvc.perform(post(otherBase + "/tags").with(auth).contentType("application/json")

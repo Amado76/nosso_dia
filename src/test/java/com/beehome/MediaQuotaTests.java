@@ -40,7 +40,7 @@ class MediaQuotaTests {
         UUID user = UUID.randomUUID(), family = UUID.randomUUID();
         jdbc.update("insert into beehome.users(id,name,email,created_at,updated_at) values (?, 'Photo', ?, now(), now())",
                 user, user + "@example.com");
-        jdbc.update("insert into beehome.families(id,name,timezone,created_at,updated_at) values (?, 'Photos', 'UTC', now(), now())", family);
+        jdbc.update("insert into beehome.families(id,name,created_at,updated_at) values (?, 'Photos', now(), now())", family);
         jdbc.update("insert into beehome.family_memberships(id,family_id,user_id,role,created_at) values (?, ?, ?, 'OWNER', now())",
                 UUID.randomUUID(), family, user);
         return new UUID[]{user, family};

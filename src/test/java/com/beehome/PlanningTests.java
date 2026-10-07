@@ -32,7 +32,7 @@ class PlanningTests {
     MockHttpServletRequestBuilder body(MockHttpServletRequestBuilder r, String b) { return r.contentType("application/json").content(b); }
     String id(ResultActions r) throws Exception { return com.jayway.jsonpath.JsonPath.read(r.andReturn().getResponse().getContentAsString(), "$.id"); }
     String family(UUID u) throws Exception {
-        return "/api/families/" + id(call(u, body(post("/api/families"), "{\"name\":\"Family\",\"timezone\":\"America/Asuncion\"}")).andExpect(status().isCreated()));
+        return "/api/families/" + id(call(u, body(post("/api/families"), "{\"name\":\"Family\"}")).andExpect(status().isCreated()));
     }
     String member(UUID u, String f) throws Exception {
         return id(call(u, body(post(f + "/members"), "{\"name\":\"Child\",\"memberType\":\"CHILD\"}")).andExpect(status().isCreated()));
@@ -40,16 +40,17 @@ class PlanningTests {
     String routine(UUID u, String f) throws Exception {
         return f + "/routines/" + id(call(u, body(post(f + "/routines"), "{\"name\":\" Morning \",\"daysOfWeek\":[\"MONDAY\"],\"startDate\":\"2026-09-21\",\"endDate\":\"2026-09-28\"}")).andExpect(status().isCreated()));
     }
-    @Test void requiresTimezoneAndSupportsPresenceAwareFamilyPatch() throws Exception {
+    @Test void createsAndRenamesFamiliesUsingOnlyName() throws Exception {
         UUID u = user();
-        call(u, body(post("/api/families"), "{\"name\":\"F\"}")).andExpect(status().isBadRequest());
-        for (String zone : new String[]{"+03:00", "UTC+03:00", "Moon/Base", ""}) {
-            call(u, body(post("/api/families"), "{\"name\":\"F\",\"timezone\":\"" + zone + "\"}")).andExpect(status().isBadRequest());
-        }
         String f = family(u);
-        call(u, body(patch(f), "{\"timezone\":\"Europe/Lisbon\"}")).andExpect(status().isOk()).andExpect(jsonPath("$.timezone").value("Europe/Lisbon"));
-        call(u, body(patch(f), "{\"name\":\"Renamed\"}")).andExpect(jsonPath("$.timezone").value("Europe/Lisbon"));
-        for (String b : new String[]{"{}", "{\"timezone\":null}", "{\"name\":null}"}) call(u, body(patch(f), b)).andExpect(status().isBadRequest());
+        call(u, body(patch(f), "{\"name\":\"Renamed\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.name").value("Renamed"))
+                .andExpect(jsonPath("$.timezone").doesNotExist());
+        for (String b : new String[]{"{}", "{\"timezone\":\"Europe/Lisbon\"}", "{\"name\":null}"}) {
+            call(u, body(patch(f), b)).andExpect(status().isBadRequest());
+        }
+        call(u, body(post("/api/families"), "{\"name\":\"Family\",\"timezone\":\"UTC\"}"))
+                .andExpect(status().isBadRequest());
     }
     @Test void resolvesApplicableActiveItemsAndKeepsReadsSideEffectFree() throws Exception {
         UUID u = user(); String f = family(u), m = member(u, f), r = routine(u, f);
@@ -60,7 +61,7 @@ class PlanningTests {
         call(u, body(put(day + "/2026-09-21"), "{\"note\":\" Remember water \"}")).andExpect(status().isOk());
         String di = id(call(u, body(post(day + "/2026-09-21/items"), "{\"title\":\"Trip\",\"sortOrder\":2}")).andExpect(status().isCreated()));
         call(u, get(day).param("date", "2026-09-21")).andExpect(status().isOk())
-            .andExpect(jsonPath("$.timezone").value("America/Asuncion")).andExpect(jsonPath("$.note").value("Remember water"))
+            .andExpect(jsonPath("$.timezone").doesNotExist()).andExpect(jsonPath("$.note").value("Remember water"))
             .andExpect(jsonPath("$.items.length()").value(2)).andExpect(jsonPath("$.items[0].source").value("ROUTINE"))
             .andExpect(jsonPath("$.items[0].sourceId").value(ri)).andExpect(jsonPath("$.items[0].scheduledTime").value("08:30"))
             .andExpect(jsonPath("$.items[1].sourceId").value(di)).andExpect(jsonPath("$.items[0].completed").doesNotExist());
@@ -256,7 +257,7 @@ class PlanningTests {
                 .andExpect(jsonPath("$.paths['/api/families/{familyId}/members/{memberId}/daily-plan'].get.parameters[?(@.name == 'date')].required").value(org.hamcrest.Matchers.contains(true)))
                 .andExpect(jsonPath("$.paths['/api/families/{familyId}/routines'].get.responses['404'].content['application/problem+json'].schema['$ref']").value("#/components/schemas/ProblemDetail"))
                 .andExpect(jsonPath("$.components.schemas.PatchRoutineRequest.properties.fields").doesNotExist())
-                .andExpect(jsonPath("$.components.schemas.CreateFamilyRequest.required").value(org.hamcrest.Matchers.hasItems("name", "timezone")))
+                .andExpect(jsonPath("$.components.schemas.CreateFamilyRequest.required").value(org.hamcrest.Matchers.contains("name")))
                 .andExpect(jsonPath("$.components.schemas.RoutineItemResponse.properties.scheduledTime.example").value("08:30"));
         UUID u = user(); String f = family(u);
         call(u, get(f + "/routines/" + UUID.randomUUID()).header("Accept-Language", "pt-BR"))

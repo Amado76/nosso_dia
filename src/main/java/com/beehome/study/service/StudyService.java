@@ -16,6 +16,7 @@ import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import com.beehome.shared.time.ClientTime;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -29,11 +30,12 @@ public class StudyService {
     private final FamilyService families;
     private final DailyExecutionService executions;
     private final Clock clock;
+    private final ClientTime clientTime;
     public StudyService(StudySubjectRepository subjects, StudySessionRepository sessions, StudySessionTagRepository sessionTags, TagService tags,
             FamilyAuthorizationService authorization, FamilyMemberService members, FamilyService families,
-            DailyExecutionService executions, Clock clock) {
+            DailyExecutionService executions, Clock clock, ClientTime clientTime) {
         this.subjects = subjects; this.sessions = sessions; this.sessionTags = sessionTags; this.tags = tags; this.authorization = authorization;
-        this.members = members; this.families = families; this.executions = executions; this.clock = clock;
+        this.members = members; this.families = families; this.executions = executions; this.clock = clock; this.clientTime = clientTime;
     }
     private void editor(UUID user, UUID family) { authorization.requireEditor(authorization.requireMembership(user, family)); }
     private StudySubject subject(UUID family, UUID id) {
@@ -128,7 +130,7 @@ public class StudyService {
         var subject = linkedSubject(family, body.subjectId());
         UUID item = body.dailyExecutionItemId(); linkedItem(family, member, item);
         var now = clock.instant();
-        var date = LocalDate.ofInstant(now, ZoneId.of(families.get(user, family).timezone()));
+        var date = clientTime.date(now);
         var session=StudySession.timer(family, member, subject == null ? null : subject.getId(),
                 subject == null ? null : subject.getName(), item, date, body.title(), body.notes(), user, now);
         session.details(body.topic(), body.description(), body.comments(), body.material(), body.startPage(), body.endPage(), now);

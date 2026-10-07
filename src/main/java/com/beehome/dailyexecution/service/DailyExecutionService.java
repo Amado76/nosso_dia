@@ -9,6 +9,7 @@ import com.beehome.family.service.*;
 import com.beehome.familymember.dto.FamilyMemberResponse;
 import com.beehome.familymember.service.FamilyMemberService;
 import com.beehome.shared.exception.InputException;
+import com.beehome.shared.time.ClientTime;
 import java.time.*;
 import java.util.*;
 import org.springframework.data.domain.PageRequest;
@@ -22,7 +23,7 @@ public class DailyExecutionService {
     private final DailyPlanService planning;
     private final FamilyAuthorizationService authorization;
     private final FamilyMemberService members;
-    private final FamilyService families;
+    private final ClientTime clientTime;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -32,9 +33,9 @@ public class DailyExecutionService {
 
     public DailyExecutionService(DailyExecutionRepository executions, DailyExecutionItemRepository items,
             DailyPlanService planning, FamilyAuthorizationService authorization, FamilyMemberService members,
-            FamilyService families, Clock clock) {
+            ClientTime clientTime, Clock clock) {
         this.executions = executions; this.items = items; this.planning = planning; this.authorization = authorization;
-        this.members = members; this.families = families; this.clock = clock;
+        this.members = members; this.clientTime = clientTime; this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -42,13 +43,13 @@ public class DailyExecutionService {
         var profile = members.get(user, family, member);
         var execution = executions.findByFamilyIdAndFamilyMemberIdAndExecutionDate(family, member, date)
                 .orElseThrow(DailyExecutionException::missing);
-        return response(execution, profile, today(user, family), items.findByExecutionId(execution.getId()));
+        return response(execution, profile, today(), items.findByExecutionId(execution.getId()));
     }
 
     @Transactional
     public ExecutionResponse materialize(UUID user, UUID family, UUID member, LocalDate date) {
         var profile = members.get(user, family, member);
-        var today = today(user, family);
+        var today = today();
         rejectFuture(date, today);
         if (date.equals(today) && profile.active()) {
             // Match planning's member lock order, and serialize creation with deactivation.
@@ -83,7 +84,7 @@ public class DailyExecutionService {
     @Transactional(noRollbackFor = FinalizedExecutionException.class)
     public ExecutionResponse complete(UUID user, UUID family, UUID member, LocalDate date, UUID item, boolean completed) {
         var profile = members.get(user, family, member);
-        var today = today(user, family);
+        var today = today();
         rejectFuture(date, today);
         var execution = locked(family, member, date);
         var snapshots = items.findByExecutionId(execution.getId());
@@ -99,7 +100,7 @@ public class DailyExecutionService {
     public ExecutionResponse finalizeExecution(UUID user, UUID family, UUID member, LocalDate date) {
         var profile = members.get(user, family, member);
         authorization.requireEditor(authorization.requireMembership(user, family));
-        var today = today(user, family);
+        var today = today();
         rejectFuture(date, today);
         var execution = locked(family, member, date);
         execution.close(clock.instant());
@@ -110,7 +111,7 @@ public class DailyExecutionService {
     public ExecutionResponse reopen(UUID user, UUID family, UUID member, LocalDate date) {
         var profile = members.get(user, family, member);
         authorization.requireEditor(authorization.requireMembership(user, family));
-        var today = today(user, family);
+        var today = today();
         rejectFuture(date, today);
         var execution = locked(family, member, date);
         if (!execution.closed(today) && !execution.isReopened()) throw DailyExecutionException.conflict();
@@ -123,7 +124,7 @@ public class DailyExecutionService {
         members.get(user, family, member);
         if (from == null || to == null || from.isAfter(to) || page < 0 || size < 1 || size > 100
                 || (long) page * size > Integer.MAX_VALUE - 1) throw new InputException();
-        var today = today(user, family);
+        var today = today();
         var slice = executions.history(family, member, from, to, PageRequest.of(page, size));
         var counts = new HashMap<UUID, long[]>();
         if (!slice.isEmpty()) {
@@ -153,7 +154,7 @@ public class DailyExecutionService {
     @Transactional(readOnly = true)
     public List<ExecutionResponse> historyRange(UUID user, UUID family, UUID member, LocalDate from, LocalDate to) {
         var profile = members.get(user, family, member);
-        var today = today(user, family);
+        var today = today();
         var rows = executions.range(family, member, from, to);
         if (rows.isEmpty()) return List.of();
         var grouped = items.findForExecutions(rows.stream().map(DailyExecution::getId).toList()).stream()
@@ -164,8 +165,8 @@ public class DailyExecutionService {
     private DailyExecution locked(UUID family, UUID member, LocalDate date) {
         return executions.lock(family, member, date).orElseThrow(DailyExecutionException::missing);
     }
-    private LocalDate today(UUID user, UUID family) {
-        return LocalDate.now(clock.withZone(ZoneId.of(families.get(user, family).timezone())));
+    private LocalDate today() {
+        return clientTime.today(clock);
     }
     private void closeStale(DailyExecution execution, LocalDate today) {
         if (execution.closed(today)) execution.close(clock.instant());

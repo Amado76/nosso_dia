@@ -32,7 +32,7 @@ class DailyExecutionTests {
     MockHttpServletRequestBuilder body(MockHttpServletRequestBuilder r, String b) { return r.contentType("application/json").content(b); }
     String id(ResultActions r) throws Exception { return com.jayway.jsonpath.JsonPath.read(r.andReturn().getResponse().getContentAsString(), "$.id"); }
     String family(UUID u) throws Exception {
-        return "/api/families/" + id(call(u, body(post("/api/families"), "{\"name\":\"Family\",\"timezone\":\"America/Asuncion\"}")).andExpect(status().isCreated()));
+        return "/api/families/" + id(call(u, body(post("/api/families"), "{\"name\":\"Family\"}")).andExpect(status().isCreated()));
     }
     String member(UUID u, String f) throws Exception {
         return id(call(u, body(post(f + "/members"), "{\"name\":\"Child\",\"memberType\":\"CHILD\"}")).andExpect(status().isCreated()));
@@ -46,6 +46,19 @@ class DailyExecutionTests {
         org.mockito.Mockito.when(clock.withZone(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> java.time.Clock.fixed(clock.instant(), i.getArgument(0)));
     }
     String today() { return "2026-09-21"; }
+    @Test void usesDeviceOffsetForTodayAndKeepsUtcAsTheFallback() throws Exception {
+        UUID u = user(); String f = family(u), m = member(u, f);
+        String nextDay = f + "/members/" + m + "/executions/2026-09-22";
+        call(u, put(nextDay).header("X-Timezone-Offset", "840"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("OPEN"));
+        call(u, put(nextDay)).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("DAILY_EXECUTION_FUTURE_DATE"));
+    }
+    @Test void rejectsInvalidDeviceOffsetThroughTheApi() throws Exception {
+        UUID u = user(); String f = family(u), m = member(u, f);
+        call(u, put(f + "/members/" + m + "/executions/" + today()).header("X-Timezone-Offset", "invalid"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
     String itemId(ResultActions r) throws Exception { return com.jayway.jsonpath.JsonPath.read(r.andReturn().getResponse().getContentAsString(), "$.items[0].id"); }
     String daily(UUID u, String base, String title, int order) throws Exception {
         return id(call(u, body(post(base + "/daily-plan/" + today() + "/items"), "{\"title\":\"" + title + "\",\"sortOrder\":" + order + "}")).andExpect(status().isCreated()));
@@ -111,10 +124,10 @@ class DailyExecutionTests {
         daily(u, base, "Snapshot", 0);
         String item = itemId(call(u, put(day)).andExpect(status().isOk()));
         org.mockito.Mockito.when(clock.instant()).thenReturn(java.time.Instant.parse("2026-09-22T02:59:59Z"));
-        call(u, get(day)).andExpect(jsonPath("$.status").value("OPEN"));
-        call(u, put(base + "/executions/2026-09-22")).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("DAILY_EXECUTION_FUTURE_DATE"));
+        call(u, get(day).header("X-Timezone-Offset", "-180")).andExpect(jsonPath("$.status").value("OPEN"));
+        call(u, put(base + "/executions/2026-09-22").header("X-Timezone-Offset", "-180")).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("DAILY_EXECUTION_FUTURE_DATE"));
         org.mockito.Mockito.when(clock.instant()).thenReturn(java.time.Instant.parse("2026-09-22T03:00:00Z"));
-        call(u, get(day)).andExpect(jsonPath("$.status").value("FINALIZED")).andExpect(jsonPath("$.finalizedAt").value(org.hamcrest.Matchers.nullValue()));
+        call(u, get(day).header("X-Timezone-Offset", "-180")).andExpect(jsonPath("$.status").value("FINALIZED")).andExpect(jsonPath("$.finalizedAt").value(org.hamcrest.Matchers.nullValue()));
         assertThat(jdbc.queryForObject("select status from beehome.daily_executions where family_member_id = ?", String.class, UUID.fromString(m))).isEqualTo("OPEN");
         call(u, post(day + "/items/" + item + "/complete")).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DAILY_EXECUTION_FINALIZED"));
         assertThat(jdbc.queryForObject("select status from beehome.daily_executions where family_member_id = ?", String.class, UUID.fromString(m))).isEqualTo("FINALIZED");

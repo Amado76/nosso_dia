@@ -36,7 +36,7 @@ class FamilyTests {
     }
 
     UUID family(UUID user) throws Exception {
-        String body = create(user, "{\"name\":\"Amado Family\",\"timezone\":\"UTC\"}").andExpect(status().isCreated())
+        String body = create(user, "{\"name\":\"Amado Family\"}").andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return UUID.fromString(com.jayway.jsonpath.JsonPath.read(body, "$.id"));
     }
@@ -51,9 +51,18 @@ class FamilyTests {
     }
 
     @Test
+    void createsFamilyWithoutTimezoneAndDoesNotExposeOne() throws Exception {
+        create(user(), "{\"name\":\"Simple Family\"}")
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value("Simple Family"))
+                .andExpect(jsonPath("$.timezone").doesNotExist())
+                .andExpect(jsonPath("$.createdAt").value(org.hamcrest.Matchers.endsWith("Z")));
+    }
+
+    @Test
     void createsFamilyAndOwnerAndReturnsNormalizedPrivateRepresentation() throws Exception {
         UUID owner = user();
-        String body = create(owner, "{\"name\":\"  Família Amado  \",\"timezone\":\"UTC\"}")
+        String body = create(owner, "{\"name\":\"  Família Amado  \"}")
                 .andExpect(status().isCreated()).andExpect(header().exists("Location"))
                 .andExpect(jsonPath("$.name").value("Família Amado"))
                 .andExpect(jsonPath("$.myRole").value("OWNER"))
@@ -158,7 +167,7 @@ class FamilyTests {
         try {
             jdbc.execute("create trigger reject_test_membership before insert on beehome.family_memberships "
                     + "for each row when (new.user_id = '" + owner + "'::uuid) execute function beehome.reject_test_membership()");
-            create(owner, "{\"name\":\"Rollback Family\",\"timezone\":\"UTC\"}").andExpect(status().isInternalServerError())
+            create(owner, "{\"name\":\"Rollback Family\"}").andExpect(status().isInternalServerError())
                     .andExpect(jsonPath("$.code").value("INTERNAL_SERVER_ERROR"));
             assertThat(jdbc.queryForObject("select count(*) from beehome.families", Integer.class)).isEqualTo(before);
             assertThat(jdbc.queryForObject("select count(*) from beehome.family_memberships where user_id = ?", Integer.class, owner)).isZero();

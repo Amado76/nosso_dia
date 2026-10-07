@@ -37,7 +37,7 @@ class ReadingTests {
     }
     String family(UUID user) throws Exception {
         String json = call(user, post("/api/families").contentType("application/json")
-                .content("{\"name\":\"Reading\",\"timezone\":\"America/Asuncion\"}"));
+                .content("{\"name\":\"Reading\"}"));
         return "/api/families/" + com.jayway.jsonpath.JsonPath.read(json, "$.id");
     }
     String member(UUID user, String family) throws Exception {

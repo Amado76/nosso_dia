@@ -44,7 +44,7 @@ class PhotoMediaTests {
     }
     private String family(UUID user) throws Exception {
         String json = mvc.perform(post("/api/families").with(jwt().jwt(j -> j.subject(user.toString())))
-                .contentType("application/json").content("{\"name\":\"Photos\",\"timezone\":\"America/Asuncion\"}"))
+                .contentType("application/json").content("{\"name\":\"Photos\"}"))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         return "/api/families/" + com.jayway.jsonpath.JsonPath.read(json, "$.id");
     }

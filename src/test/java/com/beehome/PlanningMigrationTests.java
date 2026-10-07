@@ -17,7 +17,7 @@ class PlanningMigrationTests {
             var jdbc = new JdbcTemplate(source);
             UUID family = UUID.randomUUID();
             jdbc.update("insert into nosso_dia.families(id,name,created_at,updated_at) values (?, 'Family', now(), now())", family);
-            Flyway.configure().dataSource(source).load().migrate();
+            Flyway.configure().dataSource(source).target("8").load().migrate();
             assertThat(jdbc.queryForObject("select timezone from beehome.families where id = ?", String.class, family)).isEqualTo("UTC");
         }
     }

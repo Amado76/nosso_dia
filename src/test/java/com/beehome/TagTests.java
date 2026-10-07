@@ -30,7 +30,7 @@ class TagTests {
 
     private UUID family(UUID user) throws Exception {
         String json = mvc.perform(post("/api/families").with(jwt().jwt(j -> j.subject(user.toString())))
-                .contentType("application/json").content("{\"name\":\"Tag Family\",\"timezone\":\"UTC\"}"))
+                .contentType("application/json").content("{\"name\":\"Tag Family\"}"))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         return UUID.fromString(JsonPath.read(json, "$.id"));
     }

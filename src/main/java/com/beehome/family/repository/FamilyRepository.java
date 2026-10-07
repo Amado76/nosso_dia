@@ -14,14 +14,14 @@ public interface FamilyRepository extends JpaRepository<Family, UUID> {
     Optional<Family> lockById(UUID id);
 
     @Query("""
-            select new com.beehome.family.dto.FamilyResponse(f.id, f.name, f.timezone, m.role, f.createdAt, f.updatedAt)
+            select new com.beehome.family.dto.FamilyResponse(f.id, f.name, m.role, f.createdAt, f.updatedAt)
             from Family f join FamilyMembership m on m.familyId = f.id
             where m.userId = :userId order by f.createdAt asc, f.id asc
             """)
     Slice<FamilyResponse> findAccessible(UUID userId, Pageable pageable);
 
     @Query("""
-            select new com.beehome.family.dto.FamilyResponse(f.id, f.name, f.timezone, m.role, f.createdAt, f.updatedAt)
+            select new com.beehome.family.dto.FamilyResponse(f.id, f.name, m.role, f.createdAt, f.updatedAt)
             from Family f join FamilyMembership m on m.familyId = f.id
             where m.userId = :userId and f.id = :familyId
             """)

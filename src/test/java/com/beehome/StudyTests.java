@@ -37,7 +37,7 @@ class StudyTests {
     }
     String family(UUID user) throws Exception {
         String json = call(user, post("/api/families").contentType("application/json")
-                .content("{\"name\":\"Study\",\"timezone\":\"America/Asuncion\"}"));
+                .content("{\"name\":\"Study\"}"));
         return "/api/families/" + com.jayway.jsonpath.JsonPath.read(json, "$.id");
     }
     String member(UUID user, String family) throws Exception {
@@ -173,7 +173,7 @@ class StudyTests {
                 .contentType("application/json").content("{\"dailyExecutionItemId\":\"" + item + "\",\"subjectId\":\"" + subject + "\"}"))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("STUDY_EXECUTION_ITEM_NOT_FOUND"));
         String otherBase = other + "/study-sessions";
-        String session = mvc.perform(post(otherBase + "/start").with(jwt().jwt(j -> j.subject(owner.toString())))
+        String session = mvc.perform(post(otherBase + "/start").header("X-Timezone-Offset", "-180").with(jwt().jwt(j -> j.subject(owner.toString())))
                 .contentType("application/json").content("{\"dailyExecutionItemId\":\"" + item + "\",\"subjectId\":\"" + subject + "\"}"))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.date").value("2026-09-21"))
                 .andReturn().getResponse().getContentAsString();

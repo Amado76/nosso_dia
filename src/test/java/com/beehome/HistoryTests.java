@@ -49,7 +49,7 @@ class HistoryTests {
     private String child(UUID owner) throws Exception {
         jdbc.update("insert into beehome.users(id,name,email,created_at,updated_at) values (?, 'History', ?, now(), now())", owner, owner + "@example.com");
         String family = mvc.perform(post("/api/families").with(jwt().jwt(j -> j.subject(owner.toString())))
-                .contentType("application/json").content("{\"name\":\"History\",\"timezone\":\"America/Asuncion\"}"))
+                .contentType("application/json").content("{\"name\":\"History\"}"))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         String familyId = com.jayway.jsonpath.JsonPath.read(family, "$.id");
         String member = mvc.perform(post("/api/families/" + familyId + "/members")
@@ -104,7 +104,7 @@ class HistoryTests {
         for (UUID user : new UUID[] {owner, outsider})
             jdbc.update("insert into beehome.users(id,name,email,created_at,updated_at) values (?, 'History', ?, now(), now())", user, user + "@example.com");
         String family = mvc.perform(post("/api/families").with(jwt().jwt(j -> j.subject(owner.toString())))
-                .contentType("application/json").content("{\"name\":\"History\",\"timezone\":\"America/Asuncion\"}"))
+                .contentType("application/json").content("{\"name\":\"History\"}"))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         String familyId = com.jayway.jsonpath.JsonPath.read(family, "$.id");
         String member = mvc.perform(post("/api/families/" + familyId + "/members")
@@ -224,7 +224,7 @@ class HistoryTests {
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         String subjectId = com.jayway.jsonpath.JsonPath.read(subjectJson, "$.id");
         org.mockito.Mockito.when(clock.instant()).thenReturn(java.time.Instant.parse("2026-09-21T02:59:59Z"));
-        mvc.perform(post(member + "/study-sessions/start").with(jwt().jwt(j -> j.subject(owner.toString())))
+        mvc.perform(post(member + "/study-sessions/start").header("X-Timezone-Offset", "-180").with(jwt().jwt(j -> j.subject(owner.toString())))
                 .contentType("application/json").content("{\"subjectId\":\"" + subjectId + "\"}"))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.date").value("2026-09-20"));
         mvc.perform(get(base + "/calendar?year=2026&month=9").with(jwt().jwt(j -> j.subject(owner.toString()))))

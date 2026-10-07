@@ -37,7 +37,7 @@ public class FamilyController {
             content = @Content(schema = @Schema(implementation = FamilyResponse.class)))
     public ResponseEntity<FamilyResponse> create(@AuthenticationPrincipal Jwt principal,
             @Valid @RequestBody CreateFamilyRequest request) {
-        var family = families.create(UUID.fromString(principal.getSubject()), request.name(), request.timezone());
+        var family = families.create(UUID.fromString(principal.getSubject()), request.name());
         return ResponseEntity.created(URI.create("/api/families/" + family.id())).body(family);
     }
 
@@ -61,7 +61,7 @@ public class FamilyController {
     }
 
     @PatchMapping("/{familyId}")
-    @Operation(summary = "Edit a family as OWNER or ADMIN", description = "Name and timezone are optional; omission preserves, null is invalid. Empty patches are invalid. Last committed edit wins.")
+    @Operation(summary = "Edit a family as OWNER or ADMIN", description = "Name is required; null and empty patches are invalid. Last committed edit wins.")
     @ApiResponse(responseCode = "200", description = "Updated family details", content = @Content(schema = @Schema(implementation = FamilyResponse.class)))
     @ApiResponse(responseCode = "403", description = "Membership does not allow renaming", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     @ApiResponse(responseCode = "404", description = "Family missing or inaccessible", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))

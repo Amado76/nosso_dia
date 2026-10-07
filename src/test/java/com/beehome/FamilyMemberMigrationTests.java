@@ -46,7 +46,7 @@ class FamilyMemberMigrationTests {
             Flyway.configure().dataSource(source).load().migrate();
             assertThat(jdbc.queryForObject("select role from beehome.family_memberships where family_id = ? and user_id = ?", String.class, family, user)).isEqualTo("OWNER");
             jdbc.update("insert into beehome.family_members(id, family_id, name, member_type, linked_user_id, created_at, updated_at) values (?, ?, 'Person', 'ADULT', ?, now(), now())", UUID.randomUUID(), family, user);
-            jdbc.execute("insert into beehome.families(id, name, timezone, created_at, updated_at) select gen_random_uuid(), 'Plan fixture', 'UTC', now(), now() from generate_series(1, 1000)");
+            jdbc.execute("insert into beehome.families(id, name, created_at, updated_at) select gen_random_uuid(), 'Plan fixture', now(), now() from generate_series(1, 1000)");
             jdbc.execute("insert into beehome.family_members(id, family_id, name, member_type, active, created_at, updated_at) select gen_random_uuid(), f.id, 'Person', case when n % 2 = 0 then 'ADULT' else 'CHILD' end, n % 3 <> 0, now(), now() from beehome.families f cross join generate_series(1, 10) n");
             jdbc.execute("analyze beehome.family_members");
             // V7 adds a same-family FK index that PostgreSQL may also choose for this bounded family lookup.

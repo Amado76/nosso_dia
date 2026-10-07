@@ -177,7 +177,7 @@ public class DailyPlanService {
         if (result.size() > 1000) throw new InputException();
         result.sort(Comparator.comparingInt(ResolvedDailyPlan.Item::sortOrder).thenComparing(ResolvedDailyPlan.Item::source)
                 .thenComparing(i -> i.sourceId().toString()));
-        return new ResolvedDailyPlan(date, families.get(user, family).timezone(),
+        return new ResolvedDailyPlan(date,
                 new ResolvedDailyPlan.Member(member.id(), member.name(), member.memberType()), plan.map(DailyPlan::getNote).orElse(null), result);
     }
 }

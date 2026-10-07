@@ -34,10 +34,10 @@ public class FamilyService {
     }
 
     @Transactional
-    public FamilyResponse create(UUID userId, String name, String timezone) {
+    public FamilyResponse create(UUID userId, String name) {
         users.current(userId);
         var now = clock.instant();
-        var family = families.save(new Family(name, timezone, now));
+        var family = families.save(new Family(name, now));
         memberships.save(new FamilyMembership(family.getId(), userId, FamilyRole.OWNER, now));
         return response(family, FamilyRole.OWNER);
     }
@@ -71,12 +71,11 @@ public class FamilyService {
         authorization.requireEditor(role);
         var family = families.lockById(familyId).orElseThrow(FamilyException::notFound);
         if (request.fields().isEmpty()) throw new com.beehome.shared.exception.InputException();
-        family.edit(request.fields().contains("name") ? request.name() : family.getName(),
-                request.fields().contains("timezone") ? request.timezone() : family.getTimezone(), clock.instant());
+        family.edit(request.name(), clock.instant());
         return response(family, role);
     }
 
     private static FamilyResponse response(Family family, FamilyRole role) {
-        return new FamilyResponse(family.getId(), family.getName(), family.getTimezone(), role, family.getCreatedAt(), family.getUpdatedAt());
+        return new FamilyResponse(family.getId(), family.getName(), role, family.getCreatedAt(), family.getUpdatedAt());
     }
 }

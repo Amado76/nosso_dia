@@ -5,8 +5,8 @@ import com.beehome.familymember.entity.MemberType;
 import java.time.*;
 import java.util.*;
 import com.beehome.tag.dto.TagSummary;
-@Schema(requiredProperties = {"date", "timezone", "member", "note", "items"})
-public record ResolvedDailyPlan(LocalDate date, String timezone, Member member, @Schema(nullable = true) String note, List<Item> items) {
+@Schema(requiredProperties = {"date", "member", "note", "items"})
+public record ResolvedDailyPlan(LocalDate date, Member member, @Schema(nullable = true) String note, List<Item> items) {
     @Schema(requiredProperties = {"id", "name", "memberType"})
     public record Member(UUID id, String name, MemberType memberType) {}
     public enum Source { ROUTINE, DAILY_PLAN }

@@ -46,7 +46,7 @@ class DrawingTests {
 
     private UUID family(UUID owner) {
         UUID id = UUID.randomUUID();
-        jdbc.update("insert into beehome.families (id, name, timezone, created_at, updated_at) values (?, 'Family', 'UTC', now(), now())", id);
+        jdbc.update("insert into beehome.families (id, name, created_at, updated_at) values (?, 'Family', now(), now())", id);
         jdbc.update("insert into beehome.family_memberships (id, family_id, user_id, role, created_at) values (?, ?, ?, 'OWNER', now())", UUID.randomUUID(), id, owner);
         return id;
     }
