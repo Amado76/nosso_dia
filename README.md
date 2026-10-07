@@ -6,6 +6,11 @@ its screens or client calls. These guides describe the backend's implemented
 contract; they do not define frontend architecture or authorize missing API
 behavior.
 
+## Time handling
+
+See [UTC timestamps and automatic device-local dates](time.md). Families do not
+require a timezone setting.
+
 ## Feature contracts
 
 - [Authentication and current user](authentication.md)

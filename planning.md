@@ -22,10 +22,10 @@ preferences, with English fallback. User-authored text is not translated.
 IDs are UUID strings; audit timestamps are UTC ISO instants.
 
 Dates use strict `YYYY-MM-DD`; times use strict `HH:mm`, without seconds or
-offsets. Times are wall times in the family's persisted IANA timezone. The date
-is not shifted by timezone. There is no server “today” fallback; past dates are
-allowed. Changing the family timezone does not rewrite stored dates/times.
-See [family timezone](families.md#family-timezone).
+offsets. Times are local wall times displayed directly by the frontend. Calendar dates
+are not shifted by timezone. There is no server “today” fallback for planning;
+past dates are allowed. No family timezone is stored or returned.
+See [Time handling](time.md).
 
 ## Routes
 
@@ -194,7 +194,6 @@ Resolved day example:
 ```json
 {
   "date":"2026-09-21",
-  "timezone":"America/Asuncion",
   "member":{"id":"8a71a910-f6b7-4380-9b28-5ba75242e689","name":"Daniel","memberType":"CHILD"},
   "note":"Bring the library card",
   "items":[{
@@ -244,8 +243,7 @@ validation error has a field errors array.
 
 ## UI flow, retries, and limits
 
-1. Authenticate and select an accessible family. Offer a timezone selector;
-   migrated families use UTC until OWNER/ADMIN chooses another zone.
+1. Authenticate and select an accessible family. No timezone setup is required.
 2. Load active people through [family members](family-members.md).
 3. Page routines, load detail, then manage configuration/items. Keep inactive
    items in the reorder model.
@@ -274,7 +272,8 @@ job. Resolution query count is constant as routine count grows.
 Flyway V7 backfills existing family timezones to UTC and creates planning tables,
 same-family foreign keys, weekday checks, deferred nonempty-weekday validation,
 unique daily plans, and deferred daily order uniqueness for atomic swaps.
-Deploy with this application version; family creation clients must add timezone.
+V21 removes the family timezone setting without changing existing planning
+dates or wall times. Updated family creation clients send only name.
 Back up before rollout. Recover through a forward migration or coordinated
 application/database restore; never edit applied SQL.
 

@@ -5,8 +5,9 @@ All routes require `Authorization: Bearer <accessToken>` and accept optional
 `Accept-Language: en|pt|es` (regional variants work). JSON bodies use
 `Content-Type: application/json`. Errors use `application/problem+json` with a
 stable `code`. All IDs are UUIDs, dates are `YYYY-MM-DD`, and event times are ISO
-instants in UTC. The family timezone, not the device timezone, determines timer
-session dates. No new configuration or external service is required.
+instants in UTC. The device offset supplied automatically by the frontend
+determines timer session dates; missing offset defaults to UTC. See
+[Time handling](time.md). No new configuration or external service is required.
 
 Any current family member account (MEMBER, ADMIN, OWNER) may read subjects,
 create and operate sessions for any person in that family, and view history and
@@ -102,8 +103,8 @@ See [global tags](global-tags.md) for the tag management API and validation.
 The manual flow lets the client own timing and submit a final `durationMinutes` value. `topic` is record-specific and distinct from the official `StudySubject.name`; `description` records what was done, `comments` observations, and `material` free text. They are trimmed, blank becomes null, and their maximum lengths are 120, 10000, 10000, and 1000 characters respectively. Page endpoints are optional positive integers; either can appear alone, and when both are present `endPage >= startPage`. Invalid values return `400 VALIDATION_ERROR`. Tags classify a session but never define its subject or change subject totals. Historical subjectless study sessions remain readable and correctable, but new start and manual requests require a family `subjectId`. Correction cannot clear an assigned subject.
 
 Timer flow: start → pause → resume → finish, or start → finish, or paused → finish.
-Only running intervals count. Start fixes the date in the family's timezone and
-it never changes when midnight passes. The server measures elapsed seconds;
+Only running intervals count. Start fixes the date using the current device
+offset and it never changes when midnight passes. The server measures elapsed seconds;
 clients may display an estimated live counter from `currentRunStartedAt` but must
 send commands only, without ticks. Paused sessions do not block a new timer.
 At most one running session exists per member, including concurrent requests.

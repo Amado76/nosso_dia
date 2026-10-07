@@ -3,7 +3,8 @@
 PDR-05 records the resolved PDR-04 plan as independent snapshots. All paths below
 start with `/api/families/{familyId}/members/{memberId}/executions`.
 Family/member/item IDs are UUIDs. Dates must be valid `YYYY-MM-DD` strings.
-The family timezone determines today; never substitute the device timezone.
+Today uses the automatically supplied device offset; missing offset defaults
+to UTC. See [Time handling](time.md).
 Existing [authentication](authentication.md), [family](families.md),
 [member](family-members.md), and [planning](planning.md) configuration applies.
 There are no new environment variables or external services.
@@ -88,7 +89,7 @@ The member summary uses current name, type (`CHILD` or `ADULT`), and color; thes
 are not historical snapshots. Item color is not stored or returned. The note is
 a nullable snapshot of at most 2000 characters. Titles are nonblank, at most 120
 characters; descriptions are nullable, at most 2000 characters. Scheduled time is
-nullable `HH:mm`, interpreted in the family's timezone, not an event timestamp.
+nullable `HH:mm`, displayed as local wall time, not an event timestamp.
 Sort order is a nonnegative integer. Items are ordered by sort order, source type
 (`ROUTINE` before `DAILY_PLAN`), source ID, and execution item ID. Equal sort orders
 are valid. IDs remain stable through synchronization and cancellation/reactivation.
@@ -131,7 +132,7 @@ Reopened executions never synchronize, including today's reopened execution.
 This preserves the evidence being corrected. A past execution is effectively
 closed unless explicitly reopened. The first valid state-changing access persists
 closure; an attempted completion returns 409 and still commits that closure.
-GET/history never write. There is no scheduler. Changing the family timezone changes
+GET/history never write. There is no scheduler. Changing the device offset changes
 the date boundary used for subsequent requests; persisted finalization stays closed.
 
 Do not create executions for inactive members. Their existing executions remain
