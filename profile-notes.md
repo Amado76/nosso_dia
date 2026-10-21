@@ -29,7 +29,7 @@ A response contains the note's non-null `id`, `title`, `formatVersion`, `revisio
 {"id":"8e9bb12d-8296-45a4-9c91-d17ddae12be3","title":"Call Bruno","formatVersion":1,"revision":1,"strokes":[],"createdAt":"2026-10-20T23:00:00Z","updatedAt":"2026-10-20T23:00:00Z"}
 ```
 
-GET collection accepts zero-based `page` (default 0, minimum 0) and `size` (default 20, 1–50). Returns `{"items":[...],"page":0,"size":20,"hasNext":false}`. Empty collection returns `items: []`. Ordering is `createdAt DESC, id DESC`. Each item includes its drawing for local previews. Offset pagination can shift when another device creates notes; de-duplicate IDs when appending or refresh from page 0. No total count is returned.
+GET collection accepts zero-based `page` (default 0, minimum 0) and `size` (default 20, 1–50). Returns `{"items":[...],"page":0,"size":20,"hasNext":false,"total":1}`. Empty collection returns `items: []`. Ordering is `createdAt DESC, id DESC`. Each item includes its drawing for local previews. Offset pagination can shift when another device creates notes; de-duplicate IDs when appending or refresh from page 0. `total` is the total number of active notes for the authorized profile across all pages (0 for an empty collection). It is computed by a scoped count query and decreases after deletion. Show it in the board footer; do not infer the total from the loaded page length.
 
 ## Concurrency, retries, errors, and client flow
 
