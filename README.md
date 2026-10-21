@@ -41,3 +41,5 @@ Shared backend rules live in [API design](../api.md), [security](../security.md)
 and [authentication](authentication.md). OpenAPI is useful for schema discovery,
 while the feature guides remain the integration context, including client flows
 and behavior that schemas alone do not express.
+
+- [Profile notes](profile-notes.md)
